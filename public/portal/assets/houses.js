@@ -1044,6 +1044,7 @@
     const cur = (location.hash || '').replace(/^#/, '').split('/')[0];
     if (houses) {
       if (!cur.startsWith('houses')) location.hash = 'houses';
+      else if (typeof route === 'function') route();
     } else if (cur.startsWith('houses')) {
       location.hash = 'make-ready';
     }
@@ -1102,4 +1103,9 @@
     routeOrder,
     miles,
   };
+
+  // #houses is already in the URL before /board returns. Paint it now — route()
+  // after refresh stays in charge of make-ready and every other hash.
+  const bootHash = (location.hash || '').replace(/^#/, '').split('/')[0];
+  if (bootHash.startsWith('houses') && typeof route === 'function') route();
 })();

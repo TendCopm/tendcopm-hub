@@ -430,3 +430,14 @@ Cache: `?v=20261027curb2`. Service worker `tendco-hub-20261027curb2`.
 http://localhost:4173/portal/app.html?demo=1&v=20261027curb2#houses
 
 Preview only — do not promote to tendcopm.com.
+
+## Houses hash first paint (preview 2026-10-27 hash1)
+Opening `#houses`, `#houses-map`, or `#houses-routes` painted the apartments Turns view until `/board` returned (about two seconds on preview, and indefinitely if that request hung). The Houses control could already look selected after a later mode pass, but the address board did not render until the menu was used again.
+
+The shell now reads the hash before the Turns section is parsed and shows the matching houses view. `houses.js` calls `route()` as soon as it loads, instead of waiting for the board request. A later menu click on Houses still re-runs `route()` when the hash is already a houses view. No hash, `#turns`, and `#make-ready` still settle on Make Ready Board after the board loads.
+
+Cache: `?v=20261027hash1`. Service worker `tendco-hub-20261027hash1`.
+
+http://localhost:4173/portal/app.html?demo=1&v=20261027hash1#houses
+
+Preview only — do not promote to tendcopm.com.

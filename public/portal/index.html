@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TendCo Hub">
-<link rel="manifest" href="manifest.webmanifest?v=20261027curb2">
+<link rel="manifest" href="manifest.webmanifest?v=20261027hash1">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +36,7 @@
     </dl>
     <button class="btn pri demo-enter" type="button" id="demo-enter">Enter demo</button>
     <p class="demo-callout-fine">Or use the form → fields are prefilled so you can also experience signing in.</p>
-    <p class="demo-callout-fine"><a href="app.html?demo=1&amp;v=20261027curb2#houses" style="color:#fff;font-weight:800">Open Houses preview</a> — addresses and map, separate from make-ready units.</p>
+    <p class="demo-callout-fine"><a href="app.html?demo=1&amp;v=20261027hash1#houses" style="color:#fff;font-weight:800">Open Houses preview</a> — addresses and map, separate from make-ready units.</p>
   </aside>
 
   <div class="login-wrap">
@@ -123,15 +123,15 @@
       });
       const data = await r.json();
       if(!r.ok){
-        if(isDemo){ location.href = 'app.html?demo=1&v=20261027curb2'; return true; }
+        if(isDemo){ location.href = 'app.html?demo=1&v=20261027hash1'; return true; }
         showErr(data.error || 'Could not sign in');
         if(btn) btn.disabled = false;
         return false;
       }
-      location.href = isDemo ? 'app.html?demo=1&v=20261027curb2' : 'app';
+      location.href = isDemo ? 'app.html?demo=1&v=20261027hash1' : 'app';
       return true;
     }catch(err){
-      if(isDemo){ location.href = 'app.html?demo=1&v=20261027curb2'; return true; }
+      if(isDemo){ location.href = 'app.html?demo=1&v=20261027hash1'; return true; }
       showErr('Network error. Try again.');
       if(btn) btn.disabled = false;
       return false;
@@ -169,7 +169,7 @@
 
   // If already signed in, go to app
   fetch(API + '/me', {credentials:'include'}).then(r => r.ok ? r.json() : null).then(d => {
-    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027curb2' : 'app';
+    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027hash1' : 'app';
   }).catch(()=>{});
 
   document.getElementById('login-form').addEventListener('submit', async function(e){

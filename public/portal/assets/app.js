@@ -5479,6 +5479,7 @@ function renderRollingNotices(){
 
 const titles = { turns:'Turns', 'make-ready':'Make Ready Board', 'common-areas':'Common areas', schedule:'Schedule', units:'Units', history:'History', service:'Request service', houses:'Address board', 'houses-map':'House map', 'houses-routes':'House routes' };
 function showView(name){
+  document.documentElement.removeAttribute('data-boot-view');
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   const el = document.getElementById('view-' + name);
   if (el) { el.classList.remove('hidden'); el.classList.add('view'); }
@@ -5901,7 +5902,7 @@ refresh().then(() => {
     try { sessionStorage.setItem('hub_property_mode', 'sfh'); } catch {}
     const sel = document.getElementById('property-mode-app');
     if (sel) sel.value = 'sfh';
-    if (window.HubHouses) window.HubHouses.applyMode('sfh', { navigate: false });
+    try { if (window.HubHouses) window.HubHouses.applyMode('sfh', { navigate: false }); } catch {}
     if (!hashView.startsWith('houses')) location.hash = 'houses';
   } else if (!location.hash || location.hash === '#' || location.hash === '#turns') {
     location.hash = 'make-ready';
@@ -5912,4 +5913,8 @@ refresh().then(() => {
   }
 }).catch(e => {
   if (e.message !== 'auth') toast(e.message || 'Failed to load');
+  const hashView = (location.hash || '').replace(/^#/, '').split('/')[0];
+  if (hashView.startsWith('houses')) {
+    try { route(); } catch {}
+  }
 });
