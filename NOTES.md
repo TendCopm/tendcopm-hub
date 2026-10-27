@@ -415,3 +415,18 @@ Dismiss **Add your maintenance team** if it covers the page. Open **812 W Prince
 With a key set, the same house shows **Street View** instead of the placeholder, unless a crew photo is saved.
 
 Preview only — do not promote to tendcopm.com.
+
+## Street View link fix (preview 2026-10-27 curb2)
+**Open in Street View** used `https://maps.google.com/@?api=1&map_action=pano&viewpoint=…`. That host treats `/@` as a path and returns Google’s “The requested URL /@ was not found” 404 (Fernando, mobile, after curb1).
+
+The button now uses the Maps URL scheme: `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=LAT,LNG&fov=90`. That URL returns HTTP 200. If a house has no coordinates, the link is `https://www.google.com/maps/search/?api=1&query=ADDRESS`.
+
+Buddy check for **812 W Princeton St** (`28.572850, -81.389550`):
+
+https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=28.572850,-81.389550&fov=90
+
+Cache: `?v=20261027curb2`. Service worker `tendco-hub-20261027curb2`.
+
+http://localhost:4173/portal/app.html?demo=1&v=20261027curb2#houses
+
+Preview only — do not promote to tendcopm.com.

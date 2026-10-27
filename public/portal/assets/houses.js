@@ -573,15 +573,16 @@
     return key;
   }
 
+  /* maps.google.com/@ 404s — Google treats "/@" as a path. Use the Maps URL scheme. */
   function streetViewHref(h) {
     const lat = Number(h.lat);
     const lng = Number(h.lng);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      return 'https://maps.google.com/@?api=1&map_action=pano&viewpoint='
+      return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='
         + lat.toFixed(6) + ',' + lng.toFixed(6) + '&fov=90';
     }
     const q = [h.street, h.city, 'FL', h.zip].filter(Boolean).join(', ');
-    return 'https://maps.google.com/?q=' + encodeURIComponent(q);
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
   }
 
   /* Heading is omitted so Street View aims the camera at the pin. Outdoor first. */
