@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>TendCo™ Client Portal</title>
+<meta name="theme-color" content="#1F5BD8">
+<meta name="application-name" content="TendCo Hub">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TendCo Hub">
+<link rel="manifest" href="manifest.webmanifest?v=20261027houses1pwa">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css?v=20261027houses1pwa">
+<link rel="stylesheet" href="assets/portal.css?v=20261027houses1pwa">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+</head>
+<body>
+<div class="demo-banner">The Hub by TendCo™ · live Phase 1 <span id="banner-client"></span></div>
+<div class="sb-overlay" id="sb-overlay"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-head"><a href="index.html" aria-label="TendCo portal home"><img src="assets/TendCo-Wordmark-TM.svg" alt="TendCo™" width="150" height="28"></a></div>
+    <div class="sb-create">
+      <button class="nav-create" type="button" id="btn-nav-create-mr">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Create a make ready unit
+      </button>
+      <button class="nav-create hidden" type="button" id="btn-nav-add-house">
+        <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Add a house
+      </button>
+    </div>
+    <div class="prop" id="prop-chip">
+      <div class="ph" id="prop-initials">TC</div>
+      <div><b id="prop-name">Loading…</b><small id="prop-meta"> </small></div>
+    </div>
+    <div class="mode-pick">
+      <div class="mode-seg" role="tablist" aria-label="Portfolio">
+        <button type="button" class="mode-seg-btn on" role="tab" data-portfolio="multifamily" aria-selected="true">Apartments</button>
+        <button type="button" class="mode-seg-btn" role="tab" id="mode-btn-houses" data-portfolio="sfh" aria-selected="false">Houses</button>
+        <button type="button" class="mode-seg-btn" role="tab" data-portfolio="commercial" aria-selected="false">Commercial</button>
+      </div>
+      <select id="property-mode-app" class="mode-select-sync" aria-hidden="true" tabindex="-1">
+        <option value="multifamily">Apartments</option>
+        <option value="sfh">Houses</option>
+        <option value="commercial">Commercial</option>
+      </select>
+    </div>
+    <nav class="nav" aria-label="Portal">
+      <div id="nav-mf">
+      <div class="sec">Work</div>
+      <a href="#turns" data-view="turns"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Turns <span class="cnt" id="nav-turns-cnt">0</span></a>
+      <a href="#make-ready" class="on" data-view="make-ready"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h10M4 18h8"/><path d="M18 14l2 2 4-4"/></svg>Make Ready Board</a>
+      <a href="#common-areas" data-view="common-areas"><svg class="i" viewBox="0 0 24 24"><path d="M3 21V10l9-6 9 6v11"/><path d="M9 21v-6h6v6"/><path d="M7 10h10"/></svg>Common areas</a>
+      <a href="#schedule" data-view="schedule"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Schedule</a>
+      <a href="#units" data-view="units"><svg class="i" viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-8h6v8"/></svg>Units</a>
+      <a href="#history" data-view="history"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+      <a href="#service" data-view="service"><svg class="i" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Request service</a>
+      </div>
+      <div id="nav-hs" class="hidden">
+      <div class="sec">Houses</div>
+      <a href="#houses" data-view="houses"><svg class="i" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>Address board <span class="cnt" id="nav-houses-cnt">0</span></a>
+      <a href="#houses-map" data-view="houses-map"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.2"/></svg>Map</a>
+      <a href="#houses-routes" data-view="houses-routes"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 7.2c5.2-.4 3.2 9 8 9.2"/></svg>Routes</a>
+      </div>
+      <div class="sec">Account</div>
+      <a href="#" id="btn-get-hub"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/></svg><span id="pwa-nav-label">Get Hub on your phone</span></a>
+      <a href="#" id="btn-invite-team"><svg class="i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Invite team</a>
+      <a href="#" id="btn-signout"><svg class="i" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</a>
+      <a class="exit-demo-nav" href="/turn-board/" id="exit-demo-nav">← Exit demo · The Hub</a>
+    </nav>
+    <div class="sb-foot">
+      <div class="free">Free for TendCo™ clients — turns board + unit schedules while we run your turns.</div>
+      <div id="user-foot"> </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button class="burger" id="burger" type="button" aria-label="Open menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div>
+        <h1 id="top-title">Turns</h1>
+        <div class="crumb" id="top-crumb"> </div>
+      </div>
+      <div class="sp"></div>
+      <button class="btn pri sm top-create" type="button" id="btn-top-create-mr">+ Create</button>
+      <button class="btn pri sm top-create hidden" type="button" id="btn-top-add-house">+ House</button>
+      <a class="exit-demo" href="/turn-board/" id="exit-demo-top" title="Back to The Hub">← The Hub</a>
+      <div class="avatar" id="avatar" title="">?</div>
+    </header>
+
+    <div class="content">
+      <section class="view" id="view-turns">
+        <div class="page-h">
+          <div><h2>Turns</h2><p>Clear status · photo proof · ready to walk — SFH, multifamily &amp; commercial</p></div>
+          <div class="r">
+            <button class="btn pri sm" type="button" id="btn-request-turn">+ Request turn</button>
+          </div>
+        </div>
+        <div class="grid g4" style="margin-bottom:16px" id="kpi-row"></div>
+        <div class="card" style="margin-bottom:20px" id="kpi-chart-card">
+          <div class="card-h">
+            <div>
+              <h3>Turn progress</h3>
+              <div class="sub">Completed last 4 weeks · open vs done</div>
+            </div>
+            <div class="r" id="kpi-chart-legend"></div>
+          </div>
+          <div class="card-b">
+            <div class="kpi-chart" id="kpi-chart" aria-label="Turns completed by week"></div>
+          </div>
+        </div>
+        <div class="board" id="board"></div>
+      </section>
+
+      <section class="view hidden" id="view-make-ready">
+        <div class="page-h">
+          <div>
+            <h2>Make Ready Board</h2>
+            <p id="mrb-page-sub">Units in turn — paint, repair, housekeeping, locks, inspect, handoff</p>
+          </div>
+          <div class="r">
+            <span class="mrb-legend" aria-hidden="true">
+              <span class="mrb-leg done">Done</span>
+              <span class="mrb-leg current">In progress</span>
+              <span class="mrb-leg todo">Open</span>
+              <span class="mrb-leg tended">Tended</span>
+            </span>
+            <button class="btn pri sm" type="button" id="btn-create-mr">+ Create</button>
+          </div>
+        </div>
+
+        <div class="card mrb-notices" id="mrb-notices-card" style="margin-bottom:16px">
+          <div class="card-h">
+            <div>
+              <h3>Rolling 60-day move-outs</h3>
+              <div class="sub" id="mrb-notices-sub">Notices land in the week they move out</div>
+            </div>
+            <div class="r"><span class="pill b" id="mrb-notices-count">0</span></div>
+          </div>
+          <div class="card-b">
+            <div class="mrb-reminders" id="mrb-reminders" aria-live="polite"></div>
+            <div class="mrb-notice-groups" id="mrb-notice-groups"></div>
+          </div>
+        </div>
+
+        <div class="card mrb-card">
+          <div class="mrb-scroll" id="mrb-scroll">
+            <table class="mrb" id="mrb-table" aria-label="Make Ready Board">
+              <thead>
+                <tr>
+                  <th scope="col" class="mrb-sticky">MO</th>
+                  <th scope="col" class="mrb-sticky2" id="mrb-th-unit">Unit #</th>
+                  <th scope="col">Paint</th>
+                  <th scope="col">Repair / replace</th>
+                  <th scope="col">Housekeeping</th>
+                  <th scope="col">Change lock</th>
+                  <th scope="col">Inspected</th>
+                  <th scope="col">Move in</th>
+                  <th scope="col">Comments</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="mrb-body"></tbody>
+            </table>
+          </div>
+          <p class="mrb-empty" id="mrb-empty" hidden>No turns on the board yet. Request a turn to start a make-ready.</p>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-common-areas">
+        <div class="page-h">
+          <div>
+            <h2>Common areas</h2>
+            <p>Recurring property jobs and viewing-only reminders — separate from unit make-ready.</p>
+          </div>
+          <div class="r">
+            <div class="seg" role="group" aria-label="Property schedule lane">
+              <button type="button" class="seg-btn on" id="ca-tab-common" data-ca-tab="common">Common areas</button>
+              <button type="button" class="seg-btn" id="ca-tab-viewing" data-ca-tab="viewing">Viewing</button>
+            </div>
+            <button class="btn pri sm" type="button" id="btn-ca-create">+ Add job</button>
+          </div>
+        </div>
+        <div class="ca-hint" role="note">
+          <strong>Common areas</strong> are recurring property jobs — separate from unit make-ready.
+          <span class="ca-hint-sep">·</span>
+          <strong>Viewing</strong> items are courtesy tracking only — no vendor, no approval, no pipeline.
+        </div>
+        <div class="card ca-card" id="ca-common-panel">
+          <div class="card-h">
+            <div>
+              <h3>Recurring common-area services</h3>
+              <div class="sub">Model · Office/amenities · Pool — in-house or outsourced</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="ca-list" id="ca-list"></div>
+            <p class="ca-empty" id="ca-empty" hidden>No common-area jobs yet. Add Model, Office/amenities, or Pool cleaning.</p>
+          </div>
+        </div>
+        <div class="card ca-card hidden" id="ca-viewing-panel">
+          <div class="card-h">
+            <div>
+              <h3>Viewing-only reminders</h3>
+              <div class="sub">Fire inspection, landscaper, elevator, pool — tracking &amp; reminders only</div>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="vw-suggest-row" id="vw-suggestions" aria-label="Suggested viewing items"></div>
+            <div class="ca-list" id="vw-list"></div>
+            <p class="ca-empty" id="vw-empty" hidden>No viewing items yet. Add a courtesy reminder outside make-ready.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-schedule">
+        <div class="page-h">
+          <div><h2 id="sched-page-title">Schedule</h2><p id="sched-page-sub">Make-ready · common areas · viewing — by date</p></div>
+          <div class="r">
+            <div class="seg" role="group" aria-label="Schedule view">
+              <button type="button" class="seg-btn on" id="sched-tab-cal" data-sched-tab="cal">Calendar</button>
+              <button type="button" class="seg-btn" id="sched-tab-list" data-sched-tab="list">List</button>
+            </div>
+            <button class="btn pri sm" type="button" id="btn-share">Share schedule link</button>
+          </div>
+        </div>
+
+        <div class="card cal-card" id="sched-cal-panel" style="margin-bottom:16px">
+          <div class="cal-toolbar">
+            <div class="cal-nav">
+              <button type="button" class="ibtn cal-nav-btn" id="cal-prev" aria-label="Previous">
+                <svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <button type="button" class="btn ghost sm" id="cal-today">Today</button>
+              <button type="button" class="ibtn cal-nav-btn" id="cal-next" aria-label="Next">
+                <svg class="i" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+            </div>
+            <h3 class="cal-title" id="cal-title">October 2026</h3>
+            <div class="seg seg-sm" role="group" aria-label="Calendar range">
+              <button type="button" class="seg-btn on" id="cal-mode-month" data-cal-mode="month">Month</button>
+              <button type="button" class="seg-btn" id="cal-mode-week" data-cal-mode="week">Week</button>
+              <button type="button" class="seg-btn" id="cal-mode-day" data-cal-mode="day">Day</button>
+            </div>
+          </div>
+          <div class="cal-lane-legend" id="cal-lane-legend" aria-label="Calendar lanes">
+            <span class="cal-lane-pill lane-mr">Make-ready</span>
+            <span class="cal-lane-pill lane-ca">Common area</span>
+            <span class="cal-lane-pill lane-vw">Viewing</span>
+          </div>
+          <div class="cal-legend" id="cal-legend" hidden aria-hidden="true"></div>
+          <div class="cal-weekdays" id="cal-weekdays" aria-hidden="true"></div>
+          <div class="cal-grid" id="cal-grid" role="grid" aria-label="Schedule calendar"></div>
+          <div class="cal-day-panel" id="cal-day-panel">
+            <div class="cal-day-h">
+              <div>
+                <h4 id="cal-day-title">Pick a day</h4>
+                <div class="sub" id="cal-day-sub">Tap a date to open turns and visits</div>
+              </div>
+              <button type="button" class="ibtn" id="cal-day-close" aria-label="Close day" hidden>
+                <svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </div>
+            <div class="sched-list" id="cal-day-list"></div>
+          </div>
+        </div>
+
+        <div class="card hidden" id="sched-list-panel" style="margin-bottom:16px">
+          <div class="card-h">
+            <div>
+              <h3 id="sched-unit-title">Select a unit</h3>
+              <div class="sub" id="sched-unit-sub">Pick a unit from Turns or Units, or create a vendor share link.</div>
+            </div>
+            <div class="r">
+              <select id="sched-unit-filter" aria-label="Filter by unit" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:12px;min-width:160px">
+                <option value="">All</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-b">
+            <div class="sched-list" id="sched-list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Share with a vendor</h3></div>
+          <div class="card-b">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Outside trades only (carpet, pest, resurfacing…). They pick a window on this unit — not a work-order system. Fire alarm / inspection locks the calendar instead (no invite).</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+              <select id="share-unit" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;min-width:160px" aria-label="Unit"></select>
+              <select id="share-trade" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;min-width:180px" aria-label="Trade">
+                <option value="carpet_cleaning">Carpet cleaning</option>
+              </select>
+              <input id="share-vendor" type="text" placeholder="Name (e.g. Sunshine Carpet)" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;min-width:180px;flex:1">
+              <button class="btn pri sm" type="button" id="btn-create-share">Create &amp; copy link</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--faint);word-break:break-all" id="share-url"> </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-units">
+        <div class="page-h">
+          <div><h2>Units</h2><p>History and schedule for TendCo-managed units</p></div>
+        </div>
+        <div class="unit-grid" id="unit-grid"></div>
+      </section>
+
+      <section class="view hidden" id="view-history">
+        <div class="page-h">
+          <div>
+            <h2>History</h2>
+            <p>Completed turns &amp; homes — search by unit # or address</p>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-b" style="padding-top:16px">
+            <div class="field" style="margin:0">
+              <label for="hist-q">Search</label>
+              <input id="hist-q" type="search" placeholder="Unit #, street, city…" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="sched-list" id="hist-list"></div>
+      </section>
+
+      <section class="view hidden" id="view-service">
+        <div class="page-h">
+          <div>
+            <h2>Request service</h2>
+            <p>Send TendCo™ a work order — turn / make-ready, maintenance, painting, or other. SFH, multifamily, and commercial welcome.</p>
+          </div>
+        </div>
+        <div class="grid g2" style="align-items:start">
+          <div class="card">
+            <div class="card-h"><div><h3>New request</h3><div class="sub">Prefills your company + email · goes to workorders@tendcopm.com</div></div></div>
+            <div class="card-b">
+              <form id="svc-form" novalidate>
+                <div class="field">
+                  <label for="svc-client">Company</label>
+                  <input id="svc-client" type="text" readonly>
+                </div>
+                <div class="field">
+                  <label for="svc-email">Your email</label>
+                  <input id="svc-email" type="email" readonly>
+                </div>
+                <div class="field">
+                  <label for="svc-unit">Property / unit</label>
+                  <select id="svc-unit">
+                    <option value="">Select from your portfolio…</option>
+                  </select>
+                </div>
+                <div class="field" id="svc-addr-wrap">
+                  <label for="svc-addr">Address <span style="font-weight:500;color:var(--faint)">(or type a home / new address)</span></label>
+                  <input id="svc-addr" type="text" placeholder="1842 Willow Creek Dr" autocomplete="street-address">
+                </div>
+                <div class="field">
+                  <label for="svc-city">City</label>
+                  <input id="svc-city" type="text" placeholder="Winter Park" autocomplete="address-level2">
+                </div>
+                <div class="field">
+                  <label for="svc-type">Service type</label>
+                  <select id="svc-type" required>
+                    <option value="turn">Turn / make-ready</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="painting">Painting</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="svc-urgency">Urgency</label>
+                  <select id="svc-urgency" required>
+                    <option value="same_day">Same-day</option>
+                    <option value="next_business_day" selected>Next business day</option>
+                    <option value="scheduled">Scheduled</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="svc-desc">Description <span aria-hidden="true">*</span></label>
+                  <textarea id="svc-desc" rows="4" required placeholder="What needs to be done? Access notes, gate code, lockbox…"></textarea>
+                </div>
+                <div class="field">
+                  <label for="svc-po">PO number <span style="font-weight:500;color:var(--faint)">(optional)</span></label>
+                  <input id="svc-po" type="text" placeholder="PO-12345">
+                </div>
+                <div class="field">
+                  <label for="svc-phone">Contact phone <span style="font-weight:500;color:var(--faint)">(optional)</span></label>
+                  <input id="svc-phone" type="tel" placeholder="(813) 555-0100" autocomplete="tel">
+                </div>
+                <button class="btn pri" type="submit" id="svc-submit" style="width:100%;justify-content:center;margin-top:8px">Submit to TendCo™</button>
+                <p class="fine" id="svc-hint" style="margin-top:10px;font-size:12px;color:var(--faint)">We'll email workorders@tendcopm.com and keep a copy on your portal.</p>
+              </form>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h3>Recent requests</h3><div class="sub">Status starts as Submitted</div></div></div>
+            <div class="card-b">
+              <div class="sched-list" id="svc-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-houses">
+        <div class="page-h">
+          <div>
+            <h2>Address board</h2>
+            <p id="hs-board-sub">Street addresses only — houses are not units.</p>
+          </div>
+          <div class="r">
+            <button class="btn pri sm" type="button" id="btn-hs-add">+ Add a house</button>
+          </div>
+        </div>
+        <div id="hs-filters-board"></div>
+        <div id="hs-board"></div>
+      </section>
+
+      <section class="view hidden" id="view-houses-map">
+        <div class="page-h">
+          <div>
+            <h2>House map</h2>
+            <p id="hs-map-sub">One pin per address. Homes in the same area cluster so a crew can work the neighborhood.</p>
+          </div>
+        </div>
+        <div id="hs-filters-map"></div>
+        <div class="hs-map-layout">
+          <div class="hs-map-wrap">
+            <div id="hs-map" role="region" aria-label="Map of house addresses"></div>
+            <p class="hs-map-fallback" id="hs-map-fallback" hidden>Map could not start. Addresses are still listed beside it.</p>
+            <div class="hs-legend" aria-hidden="true">
+              <span><i class="hs-leg-pin"></i> Address</span>
+              <span><i class="hs-leg-cluster"></i> Area cluster</span>
+              <span><i class="hs-leg-route"></i> Route order</span>
+            </div>
+          </div>
+          <aside class="card hs-side" id="hs-map-side" aria-label="Areas and stops"></aside>
+        </div>
+      </section>
+
+      <section class="view hidden" id="view-houses-routes">
+        <div class="page-h">
+          <div>
+            <h2>House routes</h2>
+            <p>When one company has homes in more than one area, each area is its own loop.</p>
+          </div>
+        </div>
+        <div id="hs-filters-routes"></div>
+        <div id="hs-routes"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-bg" id="drawer-bg"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-h">
+    <div>
+      <h3 id="d-title">Unit</h3>
+      <div class="crumb" id="d-addr" style="font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="sp"></div>
+    <button class="ibtn" type="button" id="drawer-close" aria-label="Close"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="drawer-b">
+    <div class="d-status-row">
+      <span class="pill n" id="d-status"> </span>
+      <span class="d-proof" id="d-proof" hidden></span>
+    </div>
+    <p class="d-meta" id="d-meta"></p>
+
+    <h4 class="d-sec">Make Ready</h4>
+    <div class="mr-grid" id="d-make-ready" aria-label="Make Ready fields"></div>
+
+    <h4 class="d-sec">Pipeline</h4>
+    <div class="mr-pipe" id="d-pipeline" aria-label="Move-out to move-in pipeline"></div>
+
+    <div class="vacant-offer" id="d-vacant-offer" hidden></div>
+
+    <h4 class="d-sec">Advance status</h4>
+    <div class="d-status-btns" id="d-status-btns"></div>
+
+    <h4 class="d-sec">Photo proof</h4>
+    <p class="d-hint" id="d-photo-hint">Before + after required to mark Tended. Compressed on your device — stored in R2.</p>
+    <div class="photo-thumbs" id="d-photos"></div>
+    <div class="photo-actions">
+      <label class="btn sec sm photo-upload-btn">Before<input type="file" accept="image/*" capture="environment" data-kind="before" hidden></label>
+      <label class="btn sec sm photo-upload-btn">After<input type="file" accept="image/*" capture="environment" data-kind="after" hidden></label>
+      <label class="btn ghost sm photo-upload-btn">Proof<input type="file" accept="image/*" data-kind="proof" hidden></label>
+    </div>
+    <p class="d-hint" id="d-photo-status" style="margin-top:8px"></p>
+
+    <h4 class="d-sec">Punch / closeout</h4>
+    <div class="punch-list" id="d-punch"></div>
+    <div class="field" style="margin-top:10px">
+      <label for="d-punch-note">Closeout note</label>
+      <textarea id="d-punch-note" rows="2" placeholder="Short note — ready for walk / what remains"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn sec sm" type="button" id="d-punch-save">Save punch list</button>
+      <button class="btn pri sm" type="button" id="d-punch-done">Done with proof</button>
+    </div>
+
+    <h4 class="d-sec">Notes</h4>
+    <p id="d-notes" class="d-notes"></p>
+
+    <h4 class="d-sec">Actions</h4>
+    <div class="d-actions" id="d-actions">
+      <button class="btn sec sm" type="button" id="d-return">Request return</button>
+      <button class="btn sec sm" type="button" id="d-reschedule">Reschedule</button>
+      <button class="btn sec sm" type="button" id="d-cancel-turn">Cancel turn</button>
+    </div>
+
+    <h4 class="d-sec">Schedule on this unit</h4>
+    <div class="sched-list" style="margin-bottom:16px" id="d-sched"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn pri sm" type="button" id="d-share">Share schedule link</button>
+    </div>
+  </div>
+</aside>
+
+<div id="modal-bg" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:80"></div>
+<div id="modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;background:#fff;border-radius:16px;padding:22px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)">
+  <h3 style="margin:0 0 8px;font-size:18px">Request a turn</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:14px">TendCo™ will pick it up on the board as <b>Received</b>.</p>
+  <div class="field"><label for="m-unit">Unit #</label><input id="m-unit" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px" placeholder="214"></div>
+  <div class="field" style="margin-top:8px"><label for="m-addr">Address</label><input id="m-addr" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px" placeholder="1842 Willow Creek Dr"></div>
+  <div class="field" style="margin-top:8px"><label for="m-city">City</label><input id="m-city" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px" placeholder="Winter Park"></div>
+  <div class="field" style="margin-top:8px"><label for="m-notes">Notes</label><input id="m-notes" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px" placeholder="Full turn · keys at office"></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+    <button class="btn sec sm" type="button" id="m-cancel">Cancel</button>
+    <button class="btn pri sm" type="button" id="m-save">Submit turn</button>
+  </div>
+</div>
+
+
+<div id="action-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:85"></div>
+<div id="action-modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:95;background:#fff;border-radius:16px;padding:22px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)">
+  <h3 id="a-title" style="margin:0 0 8px;font-size:18px">Action</h3>
+  <p id="a-lede" style="font-size:13px;color:var(--muted);margin-bottom:14px"></p>
+  <div class="field" id="a-date-wrap" style="display:none">
+    <label for="a-date">New date</label>
+    <input id="a-date" type="date">
+  </div>
+  <div class="field" id="a-shift-wrap" style="display:none;margin-top:8px">
+    <label for="a-shift">Or shift schedule by days</label>
+    <select id="a-shift">
+      <option value="1">+1 day</option>
+      <option value="2">+2 days</option>
+      <option value="3">+3 days</option>
+      <option value="7">+1 week</option>
+      <option value="-1">−1 day</option>
+    </select>
+  </div>
+  <div class="field" style="margin-top:8px">
+    <label for="a-reason" id="a-reason-label">Reason / notes</label>
+    <textarea id="a-reason" rows="3" placeholder="What happened?"></textarea>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+    <button class="btn sec sm" type="button" id="a-cancel">Close</button>
+    <button class="btn pri sm" type="button" id="a-save">Confirm</button>
+  </div>
+</div>
+
+
+<div id="mr-wizard-root" class="mrw-root" hidden>
+  <div id="mr-wizard" class="mrw" role="dialog" aria-modal="true" aria-labelledby="mrw-title">
+    <div class="mrw-h">
+      <div>
+        <div class="mrw-steps" id="mrw-steps" aria-hidden="true">
+          <span data-step="1" class="on">1</span><i></i><span data-step="2">2</span><i></i><span data-step="3">3</span>
+        </div>
+        <h3 id="mrw-title">Create a Make Ready unit</h3>
+        <p id="mrw-lede" class="mrw-lede">Move-out date, then request services by pipeline.</p>
+      </div>
+      <button class="ibtn" type="button" id="mrw-close" aria-label="Close" onclick="window.__mrwClose && window.__mrwClose(event)">
+        <svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="mrw-b" id="mrw-body">
+      <!-- filled by JS -->
+    </div>
+    <div class="mrw-f">
+      <button class="btn sec sm" type="button" id="mrw-back" hidden onclick="window.__mrwBack && window.__mrwBack(event)">Back</button>
+      <div class="sp"></div>
+      <button class="btn ghost sm" type="button" id="mrw-cancel" onclick="window.__mrwClose && window.__mrwClose(event)">Cancel</button>
+      <button class="btn pri sm" type="button" id="mrw-next" onclick="window.__mrwNext && window.__mrwNext(event)">Continue</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="oncall-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:96"></div>
+<div id="oncall-modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:97;background:#fff;border-radius:16px;padding:22px;width:min(400px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)" role="dialog" aria-labelledby="oncall-title">
+  <h3 id="oncall-title" style="margin:0 0 6px;font-size:18px">Saturday on-call</h3>
+  <p style="font-size:13px;color:var(--muted);margin:0 0 12px">Who covers <b id="oncall-date">—</b>?</p>
+  <div class="field"><label for="oncall-who">Team member</label>
+    <select id="oncall-who" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px"></select>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+    <button class="btn sec sm" type="button" id="oncall-cancel">Cancel</button>
+    <button class="btn pri sm" type="button" id="oncall-save">Save</button>
+  </div>
+</div>
+
+<div id="log-complete-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:96"></div>
+<div id="log-complete-modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:97;background:#fff;border-radius:16px;padding:22px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)" role="dialog" aria-labelledby="lc-title">
+  <h3 id="lc-title" style="margin:0 0 6px;font-size:18px">Log completed work</h3>
+  <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Tech on site or supervisor — whichever is faster. <span id="lc-who-hint"></span></p>
+  <div class="lc-roles" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <label class="lc-role" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;cursor:pointer;flex:1;min-width:140px">
+      <input type="radio" name="lc-role" id="lc-role-tech" value="tech" checked> Tech on site
+    </label>
+    <label class="lc-role" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:12px;cursor:pointer;flex:1;min-width:140px">
+      <input type="radio" name="lc-role" id="lc-role-sup" value="supervisor"> Supervisor
+    </label>
+  </div>
+  <div class="field"><label for="lc-notes">Notes <span style="color:var(--faint);font-weight:500">(optional)</span></label>
+    <textarea id="lc-notes" rows="2" placeholder="What was finished?" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;resize:vertical"></textarea>
+  </div>
+  <div class="field" id="lc-sup-wrap" hidden style="margin-top:8px">
+    <label for="lc-sup-notes">Supervisor notes / override</label>
+    <textarea id="lc-sup-notes" rows="2" placeholder="Override or add context" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;resize:vertical"></textarea>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+    <button class="btn sec sm" type="button" id="lc-cancel">Cancel</button>
+    <button class="btn pri sm" type="button" id="lc-save">Confirm complete</button>
+  </div>
+</div>
+
+<div id="team-setup-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,.45);z-index:98"></div>
+<div id="team-setup-modal" class="team-setup-modal" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99;background:#fff;border-radius:16px;padding:24px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)" role="dialog" aria-labelledby="team-setup-title">
+  <h3 id="team-setup-title" style="margin:0 0 8px;font-size:18px">Add your maintenance team</h3>
+  <p style="font-size:13px;color:var(--muted);margin:0 0 14px;line-height:1.45">Invite techs with a link before booking work — everyone should be in the system first.</p>
+  <div class="team-invite-box" style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Invite link</div>
+    <code id="team-invite-link" style="font-size:12px;word-break:break-all;color:var(--navy)">https://preview.tendcopm.pages.dev/portal/?invite=TEAM-DEMO</code>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">Demo roster</div>
+  <ul id="team-roster-list" style="margin:0 0 16px;padding-left:18px;font-size:13px;color:var(--navy);line-height:1.6"></ul>
+  <div class="pwa-team">
+    <div class="pwa-team-h">Get Hub on your phone</div>
+    <p id="pwa-team-copy">Add TendCo Hub to your home screen so the portal opens like an app.</p>
+    <button class="btn sec sm" type="button" id="btn-get-hub-team">Add to Home Screen</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    <button class="btn ghost sm" type="button" id="team-later">I'll do this later</button>
+    <button class="btn sec sm" type="button" id="team-copy">Copy invite link</button>
+    <button class="btn pri sm" type="button" id="team-ready">Team is ready</button>
+  </div>
+</div>
+
+
+<!-- create16 — Common area create/edit -->
+<div id="ca-modal-bg" class="ca-modal-bg" style="display:none"></div>
+<div id="ca-modal" class="ca-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ca-modal-title">
+  <h3 id="ca-modal-title">Add common-area job</h3>
+  <p class="ca-modal-lede" id="ca-modal-lede">Recurring property job — separate from unit make-ready.</p>
+  <input type="hidden" id="ca-edit-id" value="">
+  <div class="field">
+    <label for="ca-type">Type <span class="req">*</span></label>
+    <select id="ca-type">
+      <option value="model">Model unit cleaning</option>
+      <option value="office">Office/amenities cleaning</option>
+      <option value="pool">Pool cleaning</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="ca-cadence">Cadence <span class="req">*</span></label>
+    <select id="ca-cadence">
+      <option value="weekly">Weekly</option>
+      <option value="peak">Peak day</option>
+      <option value="2x">Twice per week</option>
+      <option value="3x">Three weekly (3×/week)</option>
+      <option value="5x">Five days a week</option>
+    </select>
+  </div>
+  <div class="field" id="ca-days-wrap">
+    <label>Day(s)</label>
+    <div class="ca-days" id="ca-days" role="group" aria-label="Weekdays">
+      <label class="ca-day"><input type="checkbox" value="1"> Mon</label>
+      <label class="ca-day"><input type="checkbox" value="2"> Tue</label>
+      <label class="ca-day"><input type="checkbox" value="3"> Wed</label>
+      <label class="ca-day"><input type="checkbox" value="4"> Thu</label>
+      <label class="ca-day"><input type="checkbox" value="5"> Fri</label>
+      <label class="ca-day"><input type="checkbox" value="6"> Sat</label>
+    </div>
+  </div>
+  <div class="ca-row2">
+    <div class="field">
+      <label for="ca-time-start">Window start <span style="font-weight:500;color:var(--faint)">(optional)</span></label>
+      <input id="ca-time-start" type="time" value="">
+    </div>
+    <div class="field">
+      <label for="ca-time-end">Window end</label>
+      <input id="ca-time-end" type="time" value="">
+    </div>
+  </div>
+  <div class="field" id="ca-staffing-wrap">
+    <label>Staffing <span class="req">*</span></label>
+    <div class="ca-staffing" role="radiogroup" aria-label="In-house or outsourced">
+      <label class="ca-staff-opt"><input type="radio" name="ca-staffing" id="ca-staff-inhouse" value="in_house"> In-house</label>
+      <label class="ca-staff-opt"><input type="radio" name="ca-staffing" id="ca-staff-outsourced" value="outsourced" checked> Outsourced</label>
+    </div>
+    <div class="mrw-hint">Model, office/amenities, and pool each track in-house vs outsourced.</div>
+  </div>
+  <div class="field" id="ca-vendor-wrap">
+    <label for="ca-vendor">Vendor <span style="font-weight:500;color:var(--faint)">(when outsourced)</span></label>
+    <select id="ca-vendor"></select>
+    <div class="mrw-hint" id="ca-vendor-hint">TendCo Cleaning is available for cleaning types. In-house uses onsite staff.</div>
+  </div>
+  <div class="field">
+    <label for="ca-notes">Notes <span style="font-weight:500;color:var(--faint)">(optional)</span></label>
+    <input id="ca-notes" type="text" placeholder="e.g. before staff arrive" maxlength="120">
+  </div>
+  <div class="ca-modal-actions">
+    <button class="btn ghost sm" type="button" id="ca-delete" hidden>Remove</button>
+    <div class="sp"></div>
+    <button class="btn sec sm" type="button" id="ca-cancel">Cancel</button>
+    <button class="btn pri sm" type="button" id="ca-save">Save</button>
+  </div>
+</div>
+
+<!-- create16 — Viewing-only create/edit -->
+<div id="vw-modal-bg" class="ca-modal-bg" style="display:none"></div>
+<div id="vw-modal" class="ca-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="vw-modal-title">
+  <h3 id="vw-modal-title">Add viewing reminder</h3>
+  <p class="ca-modal-lede">Courtesy tracking only — no vendor communication, no approval, no make-ready pipeline.</p>
+  <input type="hidden" id="vw-edit-id" value="">
+  <div class="field">
+    <label for="vw-title">Title <span class="req">*</span></label>
+    <input id="vw-title" type="text" placeholder="Elevator maintenance · Landscaper" maxlength="80">
+  </div>
+  <div class="field">
+    <label for="vw-kind">Kind</label>
+    <select id="vw-kind">
+      <option value="fire_inspection">Fire inspection</option>
+      <option value="landscaper">Landscaper</option>
+      <option value="elevator">Elevator maintenance</option>
+      <option value="pool_view">Pool (no company)</option>
+      <option value="other">Other reminder</option>
+    </select>
+  </div>
+  <div class="field">
+    <label for="vw-cadence">Cadence</label>
+    <select id="vw-cadence">
+      <option value="annual">Annual (pick month/day)</option>
+      <option value="semiannual">Semi-annual</option>
+      <option value="weekly">Weekly (pick day)</option>
+      <option value="2x">2× / week</option>
+      <option value="monthly">Monthly (day of month)</option>
+      <option value="once">One date</option>
+    </select>
+  </div>
+  <div class="field" id="vw-annual-wrap" hidden>
+    <label>Schedule window <span class="req">*</span></label>
+    <div class="ca-row2">
+      <div class="field" style="margin:0">
+        <label for="vw-month">Month</label>
+        <input id="vw-month" type="number" min="1" max="12" value="11" aria-label="Month 1–12">
+      </div>
+      <div class="field" style="margin:0">
+        <label for="vw-monthday-annual">Start day</label>
+        <input id="vw-monthday-annual" type="number" min="1" max="28" value="10" aria-label="Start day of month 1–28">
+      </div>
+    </div>
+    <div class="mrw-hint">Start day in the month (e.g. Nov 10). Length below sets the window: start → start+(length−1).</div>
+  </div>
+  <div class="field" id="vw-week-wrap" hidden>
+    <label for="vw-week-days">Length (days) <span class="req">*</span></label>
+    <input id="vw-week-days" type="number" min="1" max="14" value="5">
+    <label class="ca-day" style="display:flex;gap:8px;align-items:center;width:100%;padding:10px 12px;margin-top:10px">
+      <input type="checkbox" id="vw-week-block" value="1" checked> Block calendar for this window
+    </label>
+    <div class="mrw-hint">Example: start Nov 10, length 5 → Nov 10–14 busy. Viewing only — no vendor email or approval.</div>
+  </div>
+  <div class="field" id="vw-days-wrap">
+    <label>Day(s)</label>
+    <div class="ca-days" id="vw-days" role="group" aria-label="Weekdays">
+      <label class="ca-day"><input type="checkbox" value="1"> Mon</label>
+      <label class="ca-day"><input type="checkbox" value="2"> Tue</label>
+      <label class="ca-day"><input type="checkbox" value="3"> Wed</label>
+      <label class="ca-day"><input type="checkbox" value="4"> Thu</label>
+      <label class="ca-day"><input type="checkbox" value="5"> Fri</label>
+      <label class="ca-day"><input type="checkbox" value="6"> Sat</label>
+    </div>
+  </div>
+  <div class="field" id="vw-monthday-wrap" hidden>
+    <label for="vw-monthday">Day of month</label>
+    <input id="vw-monthday" type="number" min="1" max="28" value="1">
+    <div class="mrw-hint">Monthly reminders only — annual/semi-annual use Peak date above.</div>
+  </div>
+  <div class="field" id="vw-once-wrap" hidden>
+    <label for="vw-once">Date</label>
+    <input id="vw-once" type="date">
+  </div>
+  <div class="field">
+    <label for="vw-notes">Notes <span style="font-weight:500;color:var(--faint)">(optional)</span></label>
+    <input id="vw-notes" type="text" placeholder="Reminder only — no dispatch" maxlength="120">
+  </div>
+  <div class="vw-badge-note"><span class="vw-badge">Viewing</span> Lands on the calendar beside make-ready — never competes for unit MO→MI slots.</div>
+  <div class="ca-modal-actions">
+    <button class="btn ghost sm" type="button" id="vw-delete" hidden>Remove</button>
+    <div class="sp"></div>
+    <button class="btn sec sm" type="button" id="vw-cancel">Cancel</button>
+    <button class="btn pri sm" type="button" id="vw-save">Save</button>
+  </div>
+</div>
+
+<div class="drawer-bg" id="house-drawer-bg"></div>
+<aside class="drawer" id="house-drawer" aria-hidden="true" aria-label="House">
+  <div class="drawer-h">
+    <div>
+      <h3 id="hs-d-title">Address</h3>
+      <div class="crumb" id="hs-d-sub"></div>
+    </div>
+    <div class="sp"></div>
+    <button class="ibtn" type="button" id="hs-d-close" aria-label="Close">
+      <svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-b" id="hs-d-body"></div>
+</aside>
+
+<div id="hs-add-root" class="mrw-root" hidden>
+  <form id="hs-add-form" class="mrw" role="dialog" aria-modal="true" aria-labelledby="hs-add-title">
+    <div class="mrw-h">
+      <div>
+        <h3 id="hs-add-title">Add a house</h3>
+        <p class="mrw-lede">A street address. No unit number.</p>
+      </div>
+      <button class="ibtn" type="button" id="hs-add-x" aria-label="Close">
+        <svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="mrw-b">
+      <div id="hs-add-err" class="mrw-err" role="alert"></div>
+      <div class="field">
+        <label for="hs-street">Street address <span class="req">*</span></label>
+        <input id="hs-street" type="text" autocomplete="street-address" placeholder="812 W Princeton St" required>
+      </div>
+      <div class="mrw-row2">
+        <div class="field">
+          <label for="hs-city">City</label>
+          <input id="hs-city" type="text" autocomplete="address-level2" placeholder="Orlando">
+        </div>
+        <div class="field">
+          <label for="hs-zip">ZIP</label>
+          <input id="hs-zip" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="32804" maxlength="10">
+        </div>
+      </div>
+      <div class="mrw-row2">
+        <div class="field">
+          <label for="hs-area">Area <span class="req">*</span></label>
+          <select id="hs-area" required></select>
+        </div>
+        <div class="field">
+          <label for="hs-company">Company <span class="req">*</span></label>
+          <select id="hs-company" required></select>
+        </div>
+      </div>
+      <div class="mrw-row2">
+        <div class="field">
+          <label for="hs-job">Job</label>
+          <select id="hs-job"></select>
+        </div>
+        <div class="field">
+          <label for="hs-date">Window</label>
+          <input id="hs-date" type="date">
+        </div>
+      </div>
+      <div class="field">
+        <label for="hs-crew">Crew</label>
+        <select id="hs-crew"></select>
+      </div>
+      <div class="field">
+        <label for="hs-notes">Notes <span style="font-weight:500;color:var(--faint)">(optional)</span></label>
+        <input id="hs-notes" type="text" maxlength="140" placeholder="Lockbox, gate, pets">
+      </div>
+    </div>
+    <div class="mrw-f">
+      <div class="sp"></div>
+      <button class="btn sec sm" type="button" id="hs-add-cancel">Cancel</button>
+      <button class="btn pri sm" type="submit" id="hs-add-save">Add house</button>
+    </div>
+  </form>
+</div>
+
+<!-- create20 — pipeline clicks + Tendy unit links (portal root; persists anywhere) -->
+<div id="tendy-mount" class="tendy-float" data-create="19" aria-live="polite"></div>
+<div id="celebrate" class="celebrate" aria-hidden="true"></div>
+<div class="toast" id="toast"></div>
+<div id="pwa-sheet-bg" class="pwa-sheet-bg" hidden></div>
+<div id="pwa-sheet" class="pwa-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pwa-title">
+  <img src="assets/icons/icon-192.png" width="64" height="64" alt="">
+  <h3 id="pwa-title">TendCo Hub</h3>
+  <p id="pwa-lede" class="pwa-lede"></p>
+  <div id="pwa-body"></div>
+  <div class="pwa-sheet-actions">
+    <button class="btn ghost sm" type="button" id="pwa-dismiss">Not now</button>
+    <button class="btn pri sm hidden" type="button" id="pwa-install">Install</button>
+  </div>
+</div>
+<script src="assets/vendor/leaflet/leaflet.js?v=20261027houses1pwa"></script>
+<script src="assets/app.js?v=20261027houses1pwa"></script>
+<script src="assets/houses.js?v=20261027houses1pwa"></script>
+<script src="assets/pwa.js?v=20261027houses1pwa"></script>
+<script src="assets/tendy.js?v=20261027houses1pwa"></script>
+</body>
+</html>

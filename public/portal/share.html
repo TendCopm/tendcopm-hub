@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Schedule a visit · Powered by TendCo™</title>
+<meta name="theme-color" content="#0A1F44">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<div class="demo-banner">Vendor share link · Powered by TendCo™</div>
+<div class="share-wrap">
+  <div class="share-card">
+    <div class="share-top">
+      <img src="assets/TendCo-Wordmark-TM.svg" alt="TendCo™" width="140" height="26">
+      <span class="pill" style="background:rgba(255,255,255,.18);color:#fff;border:0">Share link</span>
+    </div>
+    <div class="share-body" id="body">
+      <p style="color:var(--muted)">Loading…</p>
+    </div>
+    <div class="share-foot">
+      <img src="assets/TendCo-Wordmark-TM.svg" alt="" width="90" height="16" style="height:16px;width:auto;opacity:.55;vertical-align:middle;margin-right:6px">
+      Powered by TendCo™
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API = '/portal/api';
+const token = new URLSearchParams(location.search).get('t') || '';
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function load(){
+  if(!token){ document.getElementById('body').innerHTML = '<p>Missing share token.</p>'; return; }
+  const r = await fetch(API + '/share/' + encodeURIComponent(token));
+  const data = await r.json();
+  if(!r.ok){ document.getElementById('body').innerHTML = '<p>'+esc(data.error||'Not found')+'</p>'; return; }
+  const e = data.event;
+  const turn = data.open_turn;
+  const slots = e.slot_options || [];
+  document.title = 'Schedule a visit · Unit ' + e.unit_label + ' · TendCo™';
+  document.getElementById('body').innerHTML = `
+    <p class="pill b" style="margin-bottom:12px">${esc(e.title||e.vendor_name)} · invite from ${esc(data.client_name||'')}</p>
+    <h1>Pick a time for Unit ${esc(e.unit_label)}</h1>
+    <p class="meta">${esc([e.address,e.city].filter(Boolean).join(' · '))}</p>
+    ${turn ? `<div class="card" style="padding:14px;margin-bottom:8px;background:var(--bg)">
+      <b style="font-size:13px">Already on this unit’s schedule</b>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:4px">TendCo™ turn · ${esc(turn.status_label)}${turn.notes?' · '+esc(turn.notes):''}</p>
+    </div>` : ''}
+    <p style="font-size:13px;font-weight:700;margin-top:18px;color:var(--navy)">Available windows</p>
+    <div class="slots" id="slots" role="listbox"></div>
+    <div class="field">
+      <label for="vendor">Your company name</label>
+      <input id="vendor" type="text" value="${esc(e.vendor_name||'')}" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--bg)">
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label for="phone">Mobile (for day-of updates)</label>
+      <input id="phone" type="tel" value="${esc(e.vendor_phone||'')}" style="width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;background:var(--bg)">
+    </div>
+    <button class="btn pri" id="confirm" style="width:100%;justify-content:center;padding:12px;margin-top:14px;font-size:14px">Confirm this window</button>
+    <p style="font-size:12px;color:var(--faint);margin-top:12px;text-align:center">Confirmation goes to the PM and lands on the unit schedule in TendCo™.</p>
+  `;
+  const slotsEl = document.getElementById('slots');
+  slotsEl.innerHTML = slots.map((s,i) => `
+    <button type="button" class="slot ${i===1||slots.length===1?'on':''}" data-i="${i}" role="option" ${i===1||slots.length===1?'aria-selected="true"':''}>
+      <div><div class="t">${esc(s.label || s.starts_at)}</div><div class="d">${esc((s.starts_at||'')+' → '+(s.ends_at||''))}</div></div>
+      <div class="chk"><svg class="i" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    </button>`).join('') || '<p style="color:var(--muted)">No windows listed — contact the PM.</p>';
+  slotsEl.addEventListener('click', ev => {
+    const s = ev.target.closest('.slot'); if(!s) return;
+    slotsEl.querySelectorAll('.slot').forEach(x => { x.classList.remove('on'); x.removeAttribute('aria-selected'); });
+    s.classList.add('on'); s.setAttribute('aria-selected','true');
+  });
+  document.getElementById('confirm').onclick = async () => {
+    const on = slotsEl.querySelector('.slot.on');
+    if(!on){ toast('Pick a window'); return; }
+    const slot = slots[Number(on.dataset.i)];
+    const r2 = await fetch(API + '/share/' + encodeURIComponent(token), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        starts_at: slot.starts_at,
+        ends_at: slot.ends_at,
+        vendor_name: document.getElementById('vendor').value.trim(),
+        vendor_phone: document.getElementById('phone').value.trim(),
+      })
+    });
+    const d2 = await r2.json();
+    if(!r2.ok){ toast(d2.error || 'Could not confirm'); return; }
+    toast(d2.message || 'Window confirmed');
+  };
+}
+load().catch(e => { document.getElementById('body').innerHTML = '<p>Could not load share link.</p>'; });
+</script>
+</body>
+</html>

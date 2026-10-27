@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>TendCo™ Client Portal · Sign in</title>
+<meta name="theme-color" content="#1F5BD8">
+<meta name="application-name" content="TendCo Hub">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TendCo Hub">
+<link rel="manifest" href="manifest.webmanifest?v=20261027houses1pwa">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css?v=20261026create17b">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+</head>
+<body>
+<div class="demo-banner">The Hub by TendCo™ · live Phase 1 <span id="banner-note">· email + password</span></div>
+
+<!-- Outside the login card — always easy to spot -->
+<a class="portal-back" id="portal-back" href="/turn-board/">← Back to The Hub</a>
+
+<div class="login-shell" id="login-shell">
+  <aside class="demo-callout" id="demo-callout" hidden>
+    <div class="demo-callout-badge">Demo · sample account</div>
+    <h2>Peek without the wall</h2>
+    <p>This is a predetermined fake login for Oakridge SFR (sample PM company). One click opens the live demo board with sample turns and schedules.</p>
+    <dl class="demo-creds">
+      <div><dt>Email</dt><dd><code id="demo-email-display">alex@oakridgepm.example</code></dd></div>
+      <div><dt>Password</dt><dd><code id="demo-pw-display">TendCoDemo1!</code></dd></div>
+    </dl>
+    <button class="btn pri demo-enter" type="button" id="demo-enter">Enter demo</button>
+    <p class="demo-callout-fine">Or use the form → fields are prefilled so you can also experience signing in.</p>
+    <p class="demo-callout-fine"><a href="app.html?demo=1&amp;v=20261027houses1pwa#houses" style="color:#fff;font-weight:800">Open Houses preview</a> — addresses and map, separate from make-ready units.</p>
+  </aside>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <img class="wm" src="assets/TendCo-Wordmark-TM.svg" alt="TendCo™" width="180" height="32">
+      <h1 id="auth-title">Log in to your portal</h1>
+      <p class="lede" id="auth-lede">Track turns, unit schedules, and share booking links with outside vendors — free while you use TendCo™.</p>
+      <p class="pill b" id="invite-pill" style="display:none;margin:0 auto 14px">Invite accepted · create your login</p>
+      <p id="auth-err" class="hint" style="color:#b91c1c;display:none;margin-bottom:10px"></p>
+      <form id="login-form">
+        <div class="field" id="name-field" style="display:none">
+          <label for="name">Your name</label>
+          <input id="name" name="name" type="text" autocomplete="name" placeholder="Alex Rivera">
+        </div>
+        <div class="field" id="mode-field" style="display:none">
+          <label for="property-mode">What do you manage?</label>
+          <select id="property-mode" name="property_mode">
+            <option value="multifamily">Apartments / multifamily</option>
+            <option value="sfh">Houses / single-family</option>
+            <option value="commercial">Commercial suites / spaces</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="email">Work email</label>
+          <input id="email" name="email" type="email" autocomplete="username" placeholder="you@company.com" required>
+        </div>
+        <div class="field">
+          <label for="pw">Password</label>
+          <input id="pw" name="pw" type="password" autocomplete="current-password" placeholder="••••••••" required minlength="8">
+        </div>
+        <button class="btn pri" type="submit" id="auth-btn">Continue to portal</button>
+      </form>
+      <p class="hint" id="auth-hint">Need access? Enter your invite code on <a href="/turn-board/" style="color:var(--blue);font-weight:700;text-decoration:none">The Hub</a> page.</p>
+      <p class="powered">Powered by TendCo™ · Central Florida property care</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const API = '/portal/api';
+  const DEMO_EMAIL = 'alex@oakridgepm.example';
+  const DEMO_PW = 'TendCoDemo1!';
+  const params = new URLSearchParams(location.search);
+  // create13 — first-run account setup
+  if (params.get('setup') === '1' || params.get('setup') === 'true') {
+    location.replace('setup.html' + (location.hash || ''));
+    return;
+  }
+  const invite = (params.get('invite') || '').trim();
+  const isDemo = params.get('demo') === '1' || params.get('demo') === 'true' || location.pathname.replace(/\/+$/,'') === '/portal/demo';
+  const create = location.hash === '#create' || !!invite;
+  let mode = create ? 'signup' : 'login';
+
+  function showErr(msg){
+    const el = document.getElementById('auth-err');
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  async function prepInvite(){
+    if(!invite) return;
+    try{
+      const r = await fetch(API + '/auth/invite/check', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({code: invite})
+      });
+      const data = await r.json();
+      if(!r.ok){ showErr(data.error || 'Invalid invite'); return; }
+      document.getElementById('invite-pill').style.display = 'inline-flex';
+      document.getElementById('invite-pill').textContent = 'Invite ' + data.code + ' · ' + (data.client_name || '');
+      if(data.email_hint) document.getElementById('email').value = data.email_hint;
+    }catch(e){ showErr('Could not verify invite. Try again.'); }
+  }
+
+  async function doLogin(email, password, btn){
+    showErr('');
+    if(btn) btn.disabled = true;
+    try{
+      const r = await fetch(API + '/auth/login', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email, password })
+      });
+      const data = await r.json();
+      if(!r.ok){
+        if(isDemo){ location.href = 'app.html?demo=1&v=20261027houses1pwa'; return true; }
+        showErr(data.error || 'Could not sign in');
+        if(btn) btn.disabled = false;
+        return false;
+      }
+      location.href = isDemo ? 'app.html?demo=1&v=20261027houses1pwa' : 'app';
+      return true;
+    }catch(err){
+      if(isDemo){ location.href = 'app.html?demo=1&v=20261027houses1pwa'; return true; }
+      showErr('Network error. Try again.');
+      if(btn) btn.disabled = false;
+      return false;
+    }
+  }
+
+  if(isDemo){
+    document.body.classList.add('is-demo-entry');
+    document.getElementById('banner-note').textContent = '· demo peek · sample Oakridge account';
+    document.getElementById('demo-callout').hidden = false;
+    document.getElementById('login-shell').classList.add('demo-layout');
+    document.getElementById('auth-title').textContent = 'Demo sign-in';
+    document.getElementById('auth-lede').textContent = 'Fields are prefilled with the sample PM account. Prefer one click? Use Enter demo on the left.';
+    document.getElementById('auth-btn').textContent = 'Sign in with demo credentials';
+    document.getElementById('auth-hint').innerHTML = 'Real clients: enter your invite on <a href="/turn-board/" style="color:var(--blue);font-weight:700;text-decoration:none">The Hub</a> page, then log in here without <code>?demo=1</code>.';
+    document.getElementById('email').value = DEMO_EMAIL;
+    document.getElementById('pw').value = DEMO_PW;
+    document.getElementById('pw').type = 'text';
+    document.title = 'The Hub · Peek the demo';
+    document.getElementById('demo-enter').addEventListener('click', function(){
+      doLogin(DEMO_EMAIL, DEMO_PW, this);
+    });
+  }
+
+  if(mode === 'signup' && !isDemo){
+    document.getElementById('auth-title').textContent = 'Create your portal login';
+    document.getElementById('auth-lede').textContent = 'Set a password for your PM account. You’ll use this email to sign back in.';
+    document.getElementById('name-field').style.display = 'block';
+    document.getElementById('mode-field').style.display = 'block';
+    document.getElementById('auth-btn').textContent = 'Create account & continue';
+    document.getElementById('pw').autocomplete = 'new-password';
+    document.getElementById('auth-hint').innerHTML = 'Already have an account? <a href="/portal/" style="color:var(--blue);font-weight:700;text-decoration:none">Log in</a>';
+    prepInvite();
+  }
+
+  // If already signed in, go to app
+  fetch(API + '/me', {credentials:'include'}).then(r => r.ok ? r.json() : null).then(d => {
+    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027houses1pwa' : 'app';
+  }).catch(()=>{});
+
+  document.getElementById('login-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    showErr('');
+    const btn = document.getElementById('auth-btn');
+    btn.disabled = true;
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('pw').value;
+    const name = document.getElementById('name').value.trim();
+    if(mode === 'login' || isDemo){
+      const ok = await doLogin(email, password, btn);
+      if(!ok) return;
+      return;
+    }
+    try{
+      const r = await fetch(API + '/auth/signup', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ code: invite, email, password, name, property_mode: document.getElementById('property-mode').value })
+      });
+      const data = await r.json();
+      if(!r.ok){ showErr(data.error || 'Could not sign in'); btn.disabled = false; return; }
+      location.href = 'app';
+    }catch(err){
+      showErr('Network error. Try again.');
+      btn.disabled = false;
+    }
+  });
+})();
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
+}
+</script>
+</body>
+</html>

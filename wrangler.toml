@@ -1,0 +1,21 @@
+name = "tendcopm"
+compatibility_date = "2026-10-01"
+pages_build_output_dir = "public"
+
+[vars]
+APP_NAME = "The Hub"
+# Keep existing dashboard vars (SHEET_ID, ACCESS_*, etc.) — do not blank them here.
+
+[[d1_databases]]
+binding = "TURN_DB"
+database_name = "tendco-turn-board-db"
+database_id = "b98a9d02-a4ca-4299-8963-4220ed5fd0a7"
+migrations_dir = "migrations"
+
+# Photo proof objects (compressed JPEG/WebP). D1 holds metadata only.
+# If bind fails on Pages deploy: Dashboard → Workers & Pages → tendcopm → Settings → Bindings → R2 → TURN_PHOTOS → tendco-turn-photos
+# Also bind on the preview deployment / production separately if dashboard shows them split.
+# Uncomment after creating bucket tendco-turn-photos (or bind in Dashboard):
+# [[r2_buckets]]
+# binding = "TURN_PHOTOS"
+# bucket_name = "tendco-turn-photos"
