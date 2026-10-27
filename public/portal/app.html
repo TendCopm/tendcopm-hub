@@ -6,12 +6,19 @@
 <meta name="robots" content="noindex,nofollow">
 <title>TendCo™ Client Portal</title>
 <meta name="theme-color" content="#1F5BD8">
+<meta name="application-name" content="TendCo Hub">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TendCo Hub">
+<link rel="manifest" href="manifest.webmanifest?v=20261027houses1pwa">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css?v=20261027houses1">
-<link rel="stylesheet" href="assets/portal.css?v=20261027houses1">
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css?v=20261027houses1pwa">
+<link rel="stylesheet" href="assets/portal.css?v=20261027houses1pwa">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png">
 </head>
 <body>
 <div class="demo-banner">The Hub by TendCo™ · live Phase 1 <span id="banner-client"></span></div>
@@ -63,6 +70,7 @@
       <a href="#houses-routes" data-view="houses-routes"><svg class="i" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="18" r="2.2"/><path d="M8 7.2c5.2-.4 3.2 9 8 9.2"/></svg>Routes</a>
       </div>
       <div class="sec">Account</div>
+      <a href="#" id="btn-get-hub"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 17h2"/></svg><span id="pwa-nav-label">Get Hub on your phone</span></a>
       <a href="#" id="btn-invite-team"><svg class="i" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>Invite team</a>
       <a href="#" id="btn-signout"><svg class="i" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</a>
       <a class="exit-demo-nav" href="/turn-board/" id="exit-demo-nav">← Exit demo · The Hub</a>
@@ -635,6 +643,11 @@
   </div>
   <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">Demo roster</div>
   <ul id="team-roster-list" style="margin:0 0 16px;padding-left:18px;font-size:13px;color:var(--navy);line-height:1.6"></ul>
+  <div class="pwa-team">
+    <div class="pwa-team-h">Get Hub on your phone</div>
+    <p id="pwa-team-copy">Add TendCo Hub to your home screen so the portal opens like an app.</p>
+    <button class="btn sec sm" type="button" id="btn-get-hub-team">Add to Home Screen</button>
+  </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
     <button class="btn ghost sm" type="button" id="team-later">I'll do this later</button>
     <button class="btn sec sm" type="button" id="team-copy">Copy invite link</button>
@@ -882,9 +895,21 @@
 <div id="tendy-mount" class="tendy-float" data-create="19" aria-live="polite"></div>
 <div id="celebrate" class="celebrate" aria-hidden="true"></div>
 <div class="toast" id="toast"></div>
-<script src="assets/vendor/leaflet/leaflet.js?v=20261027houses1"></script>
-<script src="assets/app.js?v=20261027houses1"></script>
-<script src="assets/houses.js?v=20261027houses1"></script>
-<script src="assets/tendy.js?v=20261027houses1"></script>
+<div id="pwa-sheet-bg" class="pwa-sheet-bg" hidden></div>
+<div id="pwa-sheet" class="pwa-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="pwa-title">
+  <img src="assets/icons/icon-192.png" width="64" height="64" alt="">
+  <h3 id="pwa-title">TendCo Hub</h3>
+  <p id="pwa-lede" class="pwa-lede"></p>
+  <div id="pwa-body"></div>
+  <div class="pwa-sheet-actions">
+    <button class="btn ghost sm" type="button" id="pwa-dismiss">Not now</button>
+    <button class="btn pri sm hidden" type="button" id="pwa-install">Install</button>
+  </div>
+</div>
+<script src="assets/vendor/leaflet/leaflet.js?v=20261027houses1pwa"></script>
+<script src="assets/app.js?v=20261027houses1pwa"></script>
+<script src="assets/houses.js?v=20261027houses1pwa"></script>
+<script src="assets/pwa.js?v=20261027houses1pwa"></script>
+<script src="assets/tendy.js?v=20261027houses1pwa"></script>
 </body>
 </html>

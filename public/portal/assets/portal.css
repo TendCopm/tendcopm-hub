@@ -1250,3 +1250,26 @@ button.trade-chip:hover{border-color:var(--blue);background:var(--blue-50)}
   .hs-row{grid-template-columns:1fr auto;align-items:start}
   .hs-row-job{grid-column:1 / -1}
 }
+
+/* PWA — Get Hub on your phone, beside Invite team */
+.team-setup-modal{max-height:min(88vh,640px);overflow:auto}
+.pwa-team{background:var(--blue-50);border:1px solid var(--blue-100);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+.pwa-team-h{font-size:13px;font-weight:800;color:var(--navy);margin-bottom:4px}
+.pwa-team p{font-size:12.5px;color:var(--muted);margin:0 0 10px;line-height:1.45}
+.pwa-sheet-bg{position:fixed;inset:0;background:rgba(10,31,68,.48);z-index:129}
+.pwa-sheet{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:130;
+  width:min(420px,92vw);max-height:min(88vh,640px);overflow:auto;
+  background:#fff;border-radius:16px;padding:22px 22px 18px;
+  box-shadow:0 20px 60px rgba(10,31,68,.28);
+}
+.pwa-sheet img{width:64px;height:64px;border-radius:14px;display:block;margin-bottom:12px;background:var(--blue-50)}
+.pwa-sheet h3{margin:0 0 6px;font-size:18px;letter-spacing:-.02em;color:var(--navy)}
+.pwa-lede{font-size:13.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+.pwa-steps{margin:0;padding-left:20px;color:var(--navy);font-size:13.5px;line-height:1.55}
+.pwa-steps li{margin:6px 0}
+.pwa-steps b{font-weight:800}
+.pwa-note{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45}
+.pwa-steps + .pwa-note{margin-top:10px}
+.pwa-sheet-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+#pwa-sheet[hidden],#pwa-sheet-bg[hidden]{display:none!important}

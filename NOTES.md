@@ -326,14 +326,14 @@ Separate from multifamily make-ready. Apartments / Commercial keep Make Ready Bo
 - Map (Leaflet + OpenStreetMap): one pin per address. Zoomed out, pins collapse into area clusters labeled with the neighborhood and a count. Open a cluster for numbered stops and a straight-line loop.
 - Routes view splits a company into one loop per area (nearest-neighbor, straight-line miles — not drive time).
 - Add a house stores the address in session only and drops a pin in the chosen area. Make-ready create is unchanged.
-- `?demo=1` runs without the Worker API (local demo board) so the static Pages preview can open. Cache `?v=20261027houses1`.
+- `?demo=1` runs without the Worker API (local demo board) so the static Pages preview can open. Cache `?v=20261027houses1pwa`.
 
 ### Open locally
 Serve `public/` and open the Houses preview:
 
 `python3 -m http.server 4173 --directory public`
 
-http://localhost:4173/portal/app.html?demo=1&v=20261027houses1#houses
+http://localhost:4173/portal/app.html?demo=1&v=20261027houses1pwa#houses
 
 Sign-in page: http://localhost:4173/portal/index.html?demo=1 — **Open Houses preview**, or Enter demo (falls through to the app if the API is not bound).
 
@@ -344,3 +344,16 @@ Preview only — do not promote to tendcopm.com. Not Slotify. No production DNS 
 - Geocode added homes (v1 places them near the area center).
 - Drive-time routing instead of straight-line nearest neighbor.
 - Real client book instead of the Central Florida sample.
+
+## PWA — Add to Home Screen (preview 2026-10-27 houses1pwa)
+Fernando approved the Oct 26 placement: **Get Hub on your phone** sits in the Account nav immediately above **Invite team**, and the same action is a card inside the invite-team modal.
+
+### What shipped
+- Web app manifest at `/portal/manifest.webmanifest`. Name **TendCo Hub**, short name Hub, `display: standalone`, navy background `#0A1F44`, sky theme `#1F5BD8`. `start_url` and `id` are `/portal/app.html?demo=1` so a home-screen launch opens the portal in demo mode. Scope is `/portal/`.
+- Service worker `/portal/sw.js` (cache `tendco-hub-20261027houses1pwa`). Network-first for same-origin GET. Skips `/portal/api` and does not cache map tiles or other cross-origin requests. Shell fallback is the portal app if the network fails.
+- Install sheet is opened only by a tap (no automatic prompt). Android/Chrome uses `beforeinstallprompt` and an **Install** button when the browser offers it. iOS Safari, which does not fire that event, shows Share → Add to Home Screen → Add. Other desktop browsers get the Chrome/Edge menu steps plus the iOS note.
+- Login page links the same manifest and registers the worker so install criteria can be met. The prompt itself stays on the app, next to Invite team.
+- Icons are the real `TendCo-T-Mark-TM.svg` composited onto `#EEF4FF` at 192 and 512 (and the Apple touch icon). The mark was not redrawn.
+- Cache-bust query is `?v=20261027houses1pwa` on the app shell.
+
+Preview only — do not promote to tendcopm.com. A production install should drop `?demo=1` from `start_url`.
