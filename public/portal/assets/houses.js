@@ -1,9 +1,13 @@
 /* Houses — address book, map pins, area clusters.
  * Separate from multifamily make-ready units. Preview data is Central Florida SFR.
  * Straight-line nearest-neighbor loops (not drive time).
+ * Curb view (detail only): Street View Static when a key is set, else a Maps link.
+ * A crew exterior photo (exteriorPhotoUrl) overrides Street View.
  */
 (function () {
   const EXTRA_KEY = 'hub_houses_extra_v1';
+  /* Demo overlay: { houses: { [id]: { exteriorPhotoUrl } } }. Seed rows stay in SEED. */
+  const DEMO_KEY = 'hub_houses_demo_v1';
   const AREA_ORDER = ['altamonte', 'winter-park', 'college-park', 'conway', 'belle-isle', 'kissimmee'];
 
   const COMPANIES = [
@@ -33,6 +37,7 @@
     complete: { label: 'Tended', pill: 'g' },
   };
 
+  /* Optional exteriorPhotoUrl (data URL or https) overrides Street View. Not set on the seed. */
   const SEED = [
     { id: 'hs-cp-1', street: '812 W Princeton St', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.57285, lng: -81.38955, job: 'Interior paint', status: 'scheduled', window: '2026-11-03', crew: 'Joe', notes: 'Lockbox on the side gate' },
     { id: 'hs-cp-2', street: '640 W Harvard St', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.56995, lng: -81.38540, job: 'Turnover', status: 'in_progress', window: '2026-11-02', crew: 'Ana', notes: 'Owner will meet the crew' },
@@ -70,6 +75,7 @@
   let layer = null;
   let fitting = false;
   let fitKey = '';
+  let exteriorSeq = 0;
 
   function esc(s) {
     if (typeof window.esc === 'function') return window.esc(s);
@@ -88,8 +94,49 @@
     } catch { return []; }
   }
 
+  function loadDemoStore() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(DEMO_KEY) || '{}');
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { houses: {} };
+      if (!raw.houses || typeof raw.houses !== 'object' || Array.isArray(raw.houses)) raw.houses = {};
+      return raw;
+    } catch { return { houses: {} }; }
+  }
+
+  function exteriorPhotoUrl(h) {
+    if (!h) return '';
+    const row = loadDemoStore().houses[h.id];
+    const stored = row && typeof row.exteriorPhotoUrl === 'string' ? row.exteriorPhotoUrl : '';
+    return stored || (typeof h.exteriorPhotoUrl === 'string' ? h.exteriorPhotoUrl : '');
+  }
+
+  function persistExterior(id, url) {
+    const store = loadDemoStore();
+    if (url) store.houses[id] = { exteriorPhotoUrl: url };
+    else delete store.houses[id];
+    try {
+      localStorage.setItem(DEMO_KEY, JSON.stringify(store));
+    } catch {
+      return false;
+    }
+    const extras = loadExtras();
+    const idx = extras.findIndex(h => h.id === id);
+    if (idx >= 0) {
+      if (url) extras[idx].exteriorPhotoUrl = url;
+      else delete extras[idx].exteriorPhotoUrl;
+      try { sessionStorage.setItem(EXTRA_KEY, JSON.stringify(extras)); } catch {}
+    }
+    return true;
+  }
+
   function allHomes() {
-    return SEED.concat(loadExtras());
+    const houses = loadDemoStore().houses;
+    return SEED.concat(loadExtras()).map(h => {
+      const row = houses[h.id];
+      const url = (row && typeof row.exteriorPhotoUrl === 'string' && row.exteriorPhotoUrl) || h.exteriorPhotoUrl || '';
+      if (!url) return h;
+      return Object.assign({}, h, { exteriorPhotoUrl: url });
+    });
   }
 
   function homeById(id) {
@@ -515,6 +562,210 @@
     }
   }
 
+  function mapsApiKey() {
+    let key = '';
+    try { key = String(window.TENDCO_MAPS_KEY || '').trim(); } catch {}
+    if (!key) {
+      const meta = document.querySelector('meta[name="tendco-maps-key"]');
+      key = meta ? String(meta.getAttribute('content') || '').trim() : '';
+    }
+    if (!key || /^YOUR_/i.test(key) || key === 'GOOGLE_MAPS_API_KEY') return '';
+    return key;
+  }
+
+  function streetViewHref(h) {
+    const lat = Number(h.lat);
+    const lng = Number(h.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return 'https://maps.google.com/@?api=1&map_action=pano&viewpoint='
+        + lat.toFixed(6) + ',' + lng.toFixed(6) + '&fov=90';
+    }
+    const q = [h.street, h.city, 'FL', h.zip].filter(Boolean).join(', ');
+    return 'https://maps.google.com/?q=' + encodeURIComponent(q);
+  }
+
+  /* Heading is omitted so Street View aims the camera at the pin. Outdoor first. */
+  function streetViewUrl(h, key, outdoor) {
+    const params = new URLSearchParams({
+      size: '640x360',
+      location: Number(h.lat).toFixed(6) + ',' + Number(h.lng).toFixed(6),
+      fov: '90',
+      pitch: '0',
+      return_error_code: 'true',
+      key: key,
+    });
+    if (outdoor !== false) params.set('source', 'outdoor');
+    return 'https://maps.googleapis.com/maps/api/streetview?' + params.toString();
+  }
+
+  function curbHtml(h) {
+    const has = !!exteriorPhotoUrl(h);
+    const href = streetViewHref(h);
+    return `<figure class="hs-curb${has ? '' : ' is-empty'}">
+      <div class="hs-curb-frame">
+        <img class="hs-curb-img" alt="" hidden>
+        <div class="hs-curb-ph">
+          <div class="hs-curb-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg></div>
+          <p class="hs-curb-ph-title">From the curb</p>
+          <p class="hs-curb-ph-copy">Street View appears here once a Maps key is set.</p>
+          <a class="hs-curb-open" href="${esc(href)}" target="_blank" rel="noopener noreferrer">Open in Street View</a>
+        </div>
+        <span class="hs-curb-badge" hidden>Street View</span>
+      </div>
+      <figcaption class="hs-curb-cap">
+        <label class="btn ghost sm hs-curb-file">${has ? 'Replace photo' : 'Add exterior photo'}
+          <input type="file" accept="image/*" id="hs-exterior-file" aria-label="${has ? 'Replace exterior photo' : 'Add exterior photo'}">
+        </label>
+        <button type="button" class="btn ghost sm hs-curb-remove" data-hs-act="exterior-remove" data-id="${esc(h.id)}" ${has ? '' : 'hidden'}>Remove</button>
+        <a class="hs-curb-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">Open in Street View</a>
+      </figcaption>
+    </figure>`;
+  }
+
+  function showCurbPlaceholder(frame, copy) {
+    const img = frame.querySelector('.hs-curb-img');
+    const ph = frame.querySelector('.hs-curb-ph');
+    const badge = frame.querySelector('.hs-curb-badge');
+    const text = frame.querySelector('.hs-curb-ph-copy');
+    if (img) {
+      img.onload = null;
+      img.onerror = null;
+      img.hidden = true;
+      img.removeAttribute('src');
+    }
+    if (ph) ph.hidden = false;
+    if (badge) badge.hidden = true;
+    if (text) text.textContent = copy;
+    frame.classList.add('is-empty');
+    frame.classList.remove('is-photo');
+  }
+
+  function mountCurb(h) {
+    const frame = document.querySelector('#hs-d-body .hs-curb');
+    if (!frame) return;
+    const img = frame.querySelector('.hs-curb-img');
+    const ph = frame.querySelector('.hs-curb-ph');
+    const badge = frame.querySelector('.hs-curb-badge');
+    const text = frame.querySelector('.hs-curb-ph-copy');
+    if (!img || !ph || !badge) return;
+    const crew = exteriorPhotoUrl(h);
+    const key = mapsApiKey();
+    const latOk = Number.isFinite(+h.lat) && Number.isFinite(+h.lng);
+
+    function usePhoto(src, kind) {
+      badge.hidden = false;
+      badge.dataset.kind = kind;
+      badge.textContent = kind === 'crew' ? 'Crew photo' : 'Street View';
+      img.alt = 'Curb view of ' + (h.street || 'this house');
+      img.referrerPolicy = kind === 'street' ? 'no-referrer-when-downgrade' : 'no-referrer';
+      img.hidden = true;
+      ph.hidden = false;
+      if (text) text.textContent = kind === 'crew' ? 'Loading exterior photo…' : 'Loading curb view…';
+      img.onload = function () {
+        img.hidden = false;
+        ph.hidden = true;
+        frame.classList.remove('is-empty');
+        frame.classList.add('is-photo');
+      };
+      img.onerror = function () {
+        if (kind === 'crew' && key && latOk) {
+          usePhoto(streetViewUrl(h, key, true), 'street');
+          return;
+        }
+        if (kind === 'street' && img.dataset.retried !== '1') {
+          img.dataset.retried = '1';
+          usePhoto(streetViewUrl(h, key, false), 'street');
+          return;
+        }
+        showCurbPlaceholder(frame, kind === 'crew'
+          ? 'That exterior photo didn’t load. Open the curb in Google Maps.'
+          : 'No Street View imagery for this address.');
+      };
+      img.src = src;
+    }
+
+    if (crew) {
+      usePhoto(crew, 'crew');
+      return;
+    }
+    if (key && latOk) {
+      if (text) text.textContent = 'Loading curb view…';
+      badge.hidden = false;
+      badge.dataset.kind = 'street';
+      badge.textContent = 'Street View';
+      usePhoto(streetViewUrl(h, key, true), 'street');
+      return;
+    }
+    showCurbPlaceholder(frame, 'Street View appears here once a Maps key is set.');
+  }
+
+  function photoApiReady() {
+    if (typeof api !== 'function') return false;
+    if (typeof isDemoMode === 'function' && isDemoMode()) return false;
+    const hub = window.HubState;
+    return !!(hub && hub.photosBound);
+  }
+
+  async function pushExterior(id, packed) {
+    if (!photoApiReady() || !packed) return '';
+    try {
+      const data = await api('/houses/' + encodeURIComponent(id) + '/exterior', {
+        method: 'POST',
+        body: JSON.stringify({ kind: 'exterior', ...packed }),
+      });
+      if (data && data.photos_bound === false) return '';
+      return (data && data.url) ? String(data.url) : '';
+    } catch {
+      return '';
+    }
+  }
+
+  async function deleteRemoteExterior(id) {
+    if (!photoApiReady()) return;
+    try {
+      await api('/houses/' + encodeURIComponent(id) + '/exterior', { method: 'DELETE' });
+    } catch {}
+  }
+
+  async function packExteriorFile(file) {
+    if (typeof compressImageFile !== 'function') throw new Error('Could not read that photo');
+    let packed = await compressImageFile(file, 960, 0.68);
+    if (packed && packed.bytes > 450000) packed = await compressImageFile(file, 720, 0.58);
+    return packed;
+  }
+
+  async function onExteriorFile(e) {
+    const input = e.target;
+    if (!input || input.id !== 'hs-exterior-file') return;
+    const file = input.files && input.files[0];
+    input.value = '';
+    const id = ui.focusId;
+    if (!file || !id) return;
+    if (file.type && !/^image\//.test(file.type)) {
+      if (typeof toast === 'function') toast('Choose a photo');
+      return;
+    }
+    const seq = ++exteriorSeq;
+    try {
+      const packed = await packExteriorFile(file);
+      if (seq !== exteriorSeq) return;
+      const dataUrl = 'data:' + packed.content_type + ';base64,' + packed.data_base64;
+      const remote = await pushExterior(id, packed);
+      if (seq !== exteriorSeq) return;
+      const stored = remote || dataUrl;
+      if (!persistExterior(id, stored)) {
+        if (typeof toast === 'function') toast('That photo is too large to keep in this browser');
+        return;
+      }
+      if (typeof toast === 'function') {
+        toast(remote ? 'Exterior photo saved' : 'Exterior photo saved on this device');
+      }
+      openHouse(id);
+    } catch (err) {
+      if (typeof toast === 'function') toast((err && err.message) || 'Could not add that photo');
+    }
+  }
+
   function openHouse(id) {
     const h = homeById(id);
     if (!h) return;
@@ -525,6 +776,7 @@
     document.getElementById('hs-d-title').textContent = h.street;
     document.getElementById('hs-d-sub').textContent = h.city + ', FL ' + (h.zip || '');
     document.getElementById('hs-d-body').innerHTML = `
+      ${curbHtml(h)}
       <span class="pill ${meta.pill}">${esc(meta.label)}</span>
       <dl class="hs-kv">
         <dt>Address</dt><dd>${esc(h.street)}<br>${esc(h.city)}, FL ${esc(h.zip || '')}</dd>
@@ -542,6 +794,7 @@
       <p class="sub" style="color:var(--muted);font-size:12.5px;margin-top:8px">This is a house, tracked by street address — not a make-ready unit.</p>`;
     const drawer = document.getElementById('house-drawer');
     const bg = document.getElementById('house-drawer-bg');
+    try { mountCurb(h); } catch {}
     if (drawer) { drawer.classList.add('on'); drawer.setAttribute('aria-hidden', 'false'); }
     if (bg) bg.classList.add('on');
     if (houseView() === 'houses') paintBoard();
@@ -644,7 +897,7 @@
       id: 'hs-user-' + Date.now().toString(36),
       street, city: city || AREAS[areaId].city, zip, areaId, companyId,
       lat: pos.lat, lng: pos.lng, job, status: 'received', window: windowDate, crew, notes,
-      userAdded: true,
+      userAdded: true, exteriorPhotoUrl: '',
     };
     const extras = loadExtras();
     extras.push(row);
@@ -666,6 +919,8 @@
   function removeHouse(id) {
     const next = loadExtras().filter(h => h.id !== id);
     try { sessionStorage.setItem(EXTRA_KEY, JSON.stringify(next)); } catch {}
+    persistExterior(id, '');
+    deleteRemoteExterior(id);
     if (ui.focusId === id) ui.focusId = null;
     closeHouseDrawer();
     fitKey = '';
@@ -716,6 +971,16 @@
       location.hash = ui.company !== 'all' ? ('houses-map/' + ui.company) : 'houses-map';
     }
     else if (act === 'remove') { e.preventDefault(); removeHouse(el.dataset.id); }
+    else if (act === 'exterior-remove') {
+      e.preventDefault();
+      const id = el.dataset.id;
+      if (!id) return;
+      exteriorSeq += 1;
+      persistExterior(id, '');
+      deleteRemoteExterior(id);
+      if (typeof toast === 'function') toast('Exterior photo removed');
+      openHouse(id);
+    }
   }
 
   function onSearch(e) {
@@ -820,6 +1085,7 @@
   });
   document.getElementById('hs-city')?.addEventListener('input', (e) => { e.target.dataset.touched = '1'; });
   document.addEventListener('input', onSearch);
+  document.addEventListener('change', onExteriorFile);
   document.addEventListener('click', onAct);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

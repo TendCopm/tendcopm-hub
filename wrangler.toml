@@ -5,6 +5,8 @@ pages_build_output_dir = "public"
 [vars]
 APP_NAME = "The Hub"
 # Keep existing dashboard vars (SHEET_ID, ACCESS_*, etc.) — do not blank them here.
+# Street View Static: set GOOGLE_MAPS_API_KEY on the Pages project (Preview + Production).
+# functions/portal/assets/maps-config.js injects it. Do not commit the key in [vars].
 
 [[d1_databases]]
 binding = "TURN_DB"

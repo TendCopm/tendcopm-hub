@@ -357,3 +357,61 @@ Fernando approved the Oct 26 placement: **Get Hub on your phone** sits in the Ac
 - Cache-bust query is `?v=20261027houses1pwa` on the app shell.
 
 Preview only — do not promote to tendcopm.com. A production install should drop `?demo=1` from `start_url`.
+
+## Houses curb view (preview 2026-10-27 curb1)
+
+Fernando lock (Oct 27): opening a house shows the curb. **Street View Static** is the default. A **crew exterior photo** overrides it when one is saved. Map pins do not request Street View (quota stays on the open drawer).
+
+### What shipped
+- House drawer leads with a 16:9 curb frame (~640×360, fov 90, pitch 0). Heading is omitted so Google aims the camera at the pin. `source=outdoor` first; if that imagery errors, one retry without `source`. `return_error_code=true` so a missing panorama is an image error, not a gray tile.
+- Badge reads **Street View** or **Crew photo**.
+- No key, a bad key, or no imagery: the frame stays a calm placeholder with **Open in Street View** (`maps.google.com` pano deep link from lat,lng). The drawer still opens.
+- **Add exterior photo** / **Replace photo** / **Remove**. The crew photo wins over Street View.
+- Demo and any session where R2 is not bound: the photo is compressed (same `compressImageFile` path as turn proof) and stored as `exteriorPhotoUrl` on the house record in `localStorage` key `hub_houses_demo_v1` (`{ houses: { [id]: { exteriorPhotoUrl } } }`). Added houses also keep the field on the session extra. Seed addresses are unchanged and do not include the field until a photo is saved.
+- When `state.photosBound` is true (turn-photo R2 already bound) and the page is not `?demo=1`, the client POSTs the compressed JPEG to `/portal/api/houses/:id/exterior` and uses the returned `url`. DELETE clears it. If that route is missing or `photos_bound` is false, the photo still saves on the device. No new CDN.
+
+### Set `GOOGLE_MAPS_API_KEY` (do not commit a key)
+This repo ships an empty key. Street View stays on the placeholder until a **browser** key is configured. It will be visible in the page. That is expected for Street View Static. Restrict it.
+
+1. Google Cloud: enable billing on the project. Enable **Street View Static API** (Maps JavaScript API is not enough).
+2. Create an API key.
+   - Application restriction: **HTTP referrers**
+     - `https://tendcopm.com/*`
+     - `https://*.tendcopm.com/*`
+     - `https://preview.tendcopm.pages.dev/*`
+     - `https://*.tendcopm.pages.dev/*`
+     - Optional for local checks: `http://localhost:4173/*`
+   - API restriction: **Street View Static API** only.
+3. Cloudflare Pages project `tendcopm` → Settings → Environment variables → `GOOGLE_MAPS_API_KEY` for **Preview** and **Production**. Do not put the key in `wrangler.toml` `[vars]`.
+4. `functions/portal/assets/maps-config.js` serves `window.TENDCO_MAPS_KEY` when that variable is set. With no variable, the static `public/portal/assets/maps-config.js` stays empty.
+5. Other safe overrides, still not a committed secret: set `window.TENDCO_MAPS_KEY` before `maps-config.js`, or put the referrer-restricted key in `<meta name="tendco-maps-key" content="">` in `app.html`.
+6. The Street View `<img>` uses `referrerpolicy="no-referrer-when-downgrade"` so Google receives the page URL and the referrer rule can match.
+
+### R2 follow-up (not in this preview)
+Same blocker as turn photos: the bot token cannot create the bucket. Until Fernando/Pico bind it, crew photos stay in `localStorage`.
+
+1. Create R2 bucket `tendco-turn-photos` (reuse; no second bucket and no paid CDN).
+2. Pages project `tendcopm` → Settings → Bindings → R2 → name `TURN_PHOTOS` → bucket `tendco-turn-photos` (Preview + Production).
+3. Uncomment `[[r2_buckets]]` in `wrangler.toml` and redeploy preview.
+4. Worker route, mirroring turn proof (D1 metadata, object in R2, stable `url` the drawer can load):
+   - `POST /portal/api/houses/:id/exterior` body `{ kind:'exterior', data_base64, content_type, width, height, bytes }` → `{ ok:true, photos_bound:true, url }` or `{ ok:true, photos_bound:false }` when the bucket is missing.
+   - `DELETE /portal/api/houses/:id/exterior` → `{ ok:true }`.
+   - Suggested object key: `houses/{houseId}/exterior.jpg`.
+
+`?demo=1` does not call that route. It keeps the data URL so the static preview works offline.
+
+### Cache
+`?v=20261027curb1` on the app shell. Service worker cache `tendco-hub-20261027curb1`. `maps-config.js` is not cached by the worker so a key change is picked up without another cache-bust.
+
+### Preview
+Serve `public/` and open:
+
+`python3 -m http.server 4173 --directory public`
+
+http://localhost:4173/portal/app.html?demo=1&v=20261027curb1#houses
+
+Dismiss **Add your maintenance team** if it covers the page. Open **812 W Princeton St**. Expect the curb placeholder and **Open in Street View** (no key in git). Add an exterior photo → badge **Crew photo**. Reload → the photo is still there. Replace, then Remove → placeholder returns. Map pins are unchanged.
+
+With a key set, the same house shows **Street View** instead of the placeholder, unless a crew photo is saved.
+
+Preview only — do not promote to tendcopm.com.
