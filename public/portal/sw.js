@@ -1,5 +1,5 @@
 /* TendCo Hub service worker. Cache name includes the portal version. */
-var CACHE = 'tendco-hub-20261027houses1pwa';
+var CACHE = 'tendco-hub-20261027curb1';
 
 var SHELL = [
   '/portal/app.html',
@@ -55,6 +55,7 @@ self.addEventListener('fetch', function (event) {
   try { url = new URL(req.url); } catch (e) { return; }
   if (url.origin !== self.location.origin) return;
   if (url.pathname.indexOf('/portal/api') === 0) return;
+  if (url.pathname === '/portal/assets/maps-config.js') return;
 
   event.respondWith((async function () {
     try {
