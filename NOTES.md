@@ -160,8 +160,8 @@ Fernando: first page when maintenance supervisor / PM receives The Hub.
 
 Demo-only, TendCo branding, mobile-friendly. Cache `?v=20261026create13`. Preview only — do not promote to tendcopm.com.
 
-### create12 (parked)
-Keys 3 PM+ prompt, day hour grid / preferred slots, in-house badge, vendor email handoff, replace vendor, color-change approval — helpers drafted, not integrated/deployed yet. Resume after create13.
+### create12 (shipped — see end of file)
+Keys 3 PM+ prompt, day hour grid / preferred slots, in-house badge, vendor email handoff, replace vendor, color-change approval. No `_wip` helpers were in the tree; this shipped fresh on create20 + houses. Cache `?v=20261027create12`.
 
 
 ## Tendy typed AI helper (preview 2026-10-26 create14)
@@ -441,3 +441,39 @@ Cache: `?v=20261027hash1`. Service worker `tendco-hub-20261027hash1`.
 http://localhost:4173/portal/app.html?demo=1&v=20261027hash1#houses
 
 Preview only — do not promote to tendcopm.com.
+
+## create12 — keys, slots, in-house, vendor email, color approval (preview 2026-10-27)
+
+Fernando: ship create12 before mobile agenda and prod promote. Preview only. `?demo=1` stays offline — no Worker API.
+
+No `_wip` path, create12 module, or drafted helpers were in the repo (only this parked note). Implemented on current main (create20 + Houses / PWA / curb / hash1). create10–11 order, pest gate, urgency, utilities, create16–18 common areas / Viewing / fire, create19–20 Tendy + unit links, and Houses are unchanged.
+
+### What shipped
+1. **Keys from 3:00 PM** — Make-ready services that need unit access show “Keys are available from 3:00 PM onward — not in the morning.” Same copy is in the create wizard, the service schedule panel, and the outside-vendor email handoff. New services default to the **3 PM+** window. Morning and afternoon stay selectable; those rows and day-grid chips get an amber warning. It is a prompt, not a hard block.
+2. **Day hour grid / preferred slots** — Schedule → **Day** is an hour grid from 7:00 AM–5:00 PM (so the office common-area 7–9 window still lands). Bands: Morning, Afternoon, **3 PM+ keys**. Each make-ready service has Morning (8:00–12:00), Afternoon (12:00–3:00), and 3 PM+ , plus start-hour chips. Items with no clock time stay in **No hour yet** so older demo chips are not forced onto 3:00 PM. create10 AM/PM is still the same-day Cleaning/Carpet share order, separate from this clock window.
+3. **In-house badge** — TendCo (onsite), TendCo Painting, TendCo Cleaning, TendCo Punch, and onsite techs Joe / Fred / Dennis / Ana / Maya show **In-house**. Sunshine Carpet, Floor Pro, BugFree, BathRenew, SurfacePro, Coastal Electric, and other companies show **Vendor**. Same green/slate language as common-area in-house vs outsourced.
+4. **Vendor email handoff** — Outside vendors only. **Send request email** records sent (demo, no real send). **Mark viewed (demo)** records viewed. Resend clears viewed. The unit drawer schedule rows, pipeline chips, and the service panel show **Email viewed**, **Email sent · not viewed**, or **Email not sent**. In-house crews skip the email.
+5. **Replace vendor** — The vendor control is **Replace vendor** once someone is assigned. Picking another TendCo trade or property vendor keeps the service, date, and time. Confirmation and the email handoff reset. Chips and the calendar update. The service is not deleted.
+6. **Color-change approval** — Color change stays **Awaiting color approval** until a PM/supervisor taps **Approve color change**. Link / Text / Call and Schedule stay locked until then, and the service is left off the active calendar. Approval unlocks confirm and schedule; it does not auto-confirm.
+
+Demo unit **C-118** (MO 2026-10-27, MI 2026-11-06) carries all six states: Joe inspection in the keys window (In-house, confirmed), TendCo Painting color change unapproved, Sunshine Carpet email sent / not viewed at 8:00 AM (keys warning), Coastal Electric email viewed at 1:00 PM, TendCo Cleaning in-house at 3:00 PM.
+
+### Cache
+`?v=20261027create12` on the app shell (`app.html`, `index.html`). Service worker cache `tendco-hub-20261027create12`.
+
+### Verify locally (`?demo=1`, no API)
+```
+python3 -m http.server 4173 --directory public
+```
+http://localhost:4173/portal/app.html?demo=1&v=20261027create12#make-ready
+
+Dismiss **Add your maintenance team** if it covers the page.
+
+1. **Keys + slots + badges + email** — Open **C-118**. Pipeline and **Schedule on this unit** show In-house on Joe / TendCo Cleaning, Vendor on Sunshine and Coastal, **Awaiting color approval**, **Email sent · not viewed** (carpet), **Email viewed** (electrical). Open Carpet cleaning: keys note, morning warning, handoff copy that says keys are at the office from 3:00 PM. **Mark viewed (demo)** flips the badge to Email viewed.
+2. **Hour grid** — Schedule → **Day**. Go to **Oct 27, 2026**. 8:00 AM has Sunshine / C-118 (amber, before keys). 1:00 PM has Coastal. 3:00 PM is marked **Keys from 3:00 PM** and shows Joe’s inspection and TendCo Cleaning, both **In-house**. Color change is not on the grid yet. Office/model jobs with no clock time sit under **No hour yet**.
+3. **Replace vendor** — On carpet, change Sunshine Carpet Cleaning to **Floor Pro Carpet**. Toast says the service was kept. Date and morning slot stay. Email returns to not sent. The day chip shows Floor Pro.
+4. **Color approval** — On Color change, Link/Text/Call and Schedule are locked and the badge is **Awaiting color approval**. The service is not on the day grid. **Approve color change** unlocks confirm. With a vendor already assigned it can show as pending (Needs confirm), same as other trades. Text or Schedule marks it scheduled — the 3:00 PM row then shows TendCo Painting, In-house, for C-118.
+5. **Create wizard** — **Create a make ready unit**, any label, Continue. Step 2 shows the keys note and a 3 PM+ slot on each service. Add extra **Color change**: approval required before confirm. Pick Sunshine on Carpet and **Send request email**, then **Mark viewed (demo)**. Change that vendor to Floor Pro: service row remains, email resets.
+6. **Still intact** — Pest gate, utilities block on cleaning, eviction order, common areas / Viewing / fire, Tendy unit links, Houses (`#houses`) all still open. Demo never calls the Worker.
+
+Preview only — do not promote to tendcopm.com. Not Slotify. No production DNS change.
