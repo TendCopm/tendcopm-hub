@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>TendCo™ Admin · Invite codes</title>
+<meta name="theme-color" content="#1F5BD8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+  .admin-wrap{max-width:920px;margin:0 auto;padding:40px 20px 64px}
+  .admin-wrap h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:12px 0 6px}
+  .admin-wrap .lede{color:var(--muted);margin-bottom:22px}
+  .code-big{font-size:28px;font-weight:800;letter-spacing:.06em;color:var(--blue);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+  .result{display:none;margin-top:16px;padding:16px;border:1.5px dashed var(--blue-100);border-radius:14px;background:var(--blue-50)}
+  .result.on{display:block}
+  .row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  table.inv{width:100%;border-collapse:collapse;font-size:13px}
+  table.inv th,table.inv td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  table.inv th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .key-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:18px}
+  .key-bar .field{flex:1;min-width:200px;margin:0}
+</style>
+</head>
+<body>
+<div class="demo-banner">TendCo™ Admin · invite codes after contract <span>· ADMIN_KEY required</span></div>
+<div class="admin-wrap">
+  <a href="index.html" aria-label="Portal"><img src="assets/TendCo-Wordmark-TM.svg" alt="TendCo™" width="150" height="28"></a>
+  <h1>Invite code generator</h1>
+  <p class="lede">After a contract is signed: generate a code → copy the link → email or text the new client. They create their portal login on The Hub page.</p>
+
+  <div class="card" style="padding:18px;margin-bottom:18px">
+    <div class="key-bar">
+      <div class="field">
+        <label for="admin-key">Admin key</label>
+        <input id="admin-key" type="password" autocomplete="off" placeholder="X-Admin-Key">
+      </div>
+      <button class="btn sec sm" type="button" id="btn-save-key">Remember in this browser</button>
+      <button class="btn ghost sm" type="button" id="btn-refresh">Refresh list</button>
+    </div>
+    <p style="font-size:12px;color:var(--faint)">Key stays in localStorage on this device only. Never share the page URL with clients.</p>
+  </div>
+
+  <div class="grid g2" style="align-items:start;gap:18px">
+    <div class="card">
+      <div class="card-h"><div><h3>New invite</h3><div class="sub">Creates client (if needed) + code in D1</div></div></div>
+      <div class="card-b">
+        <form id="gen-form">
+          <div class="field"><label for="client-name">Client company <span aria-hidden="true">*</span></label>
+            <input id="client-name" required placeholder="Oakridge Property Management"></div>
+          <div class="field"><label for="email-hint">PM email</label>
+            <input id="email-hint" type="email" placeholder="pm@theircompany.com"></div>
+          <div class="field"><label for="contract-ref">Contract / ref</label>
+            <input id="contract-ref" placeholder="MSA-2026-041 · signed Oct 26"></div>
+          <div class="field"><label for="note">Optional note</label>
+            <input id="note" placeholder="SFR portfolio · Central Florida"></div>
+          <div class="field"><label for="expires">Expires (days)</label>
+            <input id="expires" type="number" min="1" max="90" value="30"></div>
+          <button class="btn pri" type="submit" id="btn-gen" style="width:100%;justify-content:center">Generate invite code</button>
+        </form>
+        <div class="result" id="result">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px">CODE</div>
+          <div class="code-big" id="out-code">—</div>
+          <div style="margin-top:12px;font-size:12px;font-weight:700;color:var(--muted)">Ready-to-send link</div>
+          <p id="out-url" style="font-size:13px;word-break:break-all;margin-top:4px"></p>
+          <div class="row-actions">
+            <button class="btn pri sm" type="button" id="btn-copy-code">Copy code</button>
+            <button class="btn sec sm" type="button" id="btn-copy-url">Copy link</button>
+            <button class="btn sec sm" type="button" id="btn-copy-msg">Copy client message</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><div><h3>Recent codes</h3><div class="sub">Unused vs used</div></div></div>
+      <div class="card-b" style="overflow:auto">
+        <table class="inv">
+          <thead><tr><th>Code</th><th>Client</th><th>Status</th><th>Contract</th></tr></thead>
+          <tbody id="inv-body"><tr><td colspan="4" style="color:var(--muted)">Enter admin key to load</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:22px">
+    <div class="card-h"><div><h3>Ops · open turns across clients</h3><div class="sub">Teddy thin view — status only, no second product</div></div>
+      <button class="btn sec sm" type="button" id="btn-ops">Refresh ops</button>
+    </div>
+    <div class="card-b" style="overflow:auto">
+      <table class="inv">
+        <thead><tr><th>Client</th><th>Unit</th><th>Status</th><th>ETA</th><th>Notes</th></tr></thead>
+        <tbody id="ops-body"><tr><td colspan="5" style="color:var(--muted)">Enter admin key, then Refresh ops</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API = '/portal/api';
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(t._tm);t._tm=setTimeout(()=>t.classList.remove('on'),2400)}
+function key(){return document.getElementById('admin-key').value.trim()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+document.getElementById('admin-key').value = localStorage.getItem('tb_admin_key') || '';
+document.getElementById('btn-save-key').onclick = () => {
+  localStorage.setItem('tb_admin_key', key());
+  toast('Key saved on this browser');
+  loadInvites();
+};
+async function api(path, opts={}){
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type':'application/json', 'X-Admin-Key': key(), ...(opts.headers||{}) },
+  });
+  const data = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+async function loadInvites(){
+  if (!key()) return;
+  try {
+    const data = await api('/admin/invites');
+    const rows = data.invites || [];
+    document.getElementById('inv-body').innerHTML = rows.map(i => {
+      const used = !!i.used_at;
+      const expired = i.expires_at && i.expires_at < new Date().toISOString();
+      const status = used ? 'Used' : (expired ? 'Expired' : 'Unused');
+      const pill = used ? 'n' : (expired ? 'a' : 'g');
+      return `<tr>
+        <td><code>${esc(i.code)}</code></td>
+        <td>${esc(i.client_name||'')}<div style="font-size:11px;color:var(--faint)">${esc(i.email_hint||'')}</div></td>
+        <td><span class="pill ${pill}">${status}</span></td>
+        <td style="font-size:12px">${esc(i.contract_ref||'—')}<div style="color:var(--faint)">${esc(i.note||'')}</div></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="4" style="color:var(--muted)">No invites yet</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+document.getElementById('btn-refresh').onclick = loadInvites;
+let last = null;
+document.getElementById('gen-form').onsubmit = async (e) => {
+  e.preventDefault();
+  if (!key()) { toast('Enter admin key first'); return; }
+  const btn = document.getElementById('btn-gen');
+  btn.disabled = true;
+  try {
+    const data = await api('/admin/invites', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_name: document.getElementById('client-name').value.trim(),
+        email_hint: document.getElementById('email-hint').value.trim() || null,
+        contract_ref: document.getElementById('contract-ref').value.trim() || null,
+        note: document.getElementById('note').value.trim() || null,
+        expires_days: parseInt(document.getElementById('expires').value, 10) || 30,
+      }),
+    });
+    last = data;
+    document.getElementById('result').classList.add('on');
+    document.getElementById('out-code').textContent = data.code;
+    document.getElementById('out-url').textContent = data.signup_url || data.signup_hint;
+    toast('Invite created');
+    loadInvites();
+  } catch (err) { toast(err.message); }
+  finally { btn.disabled = false; }
+};
+function clientMessage(d){
+  const url = d.signup_url || d.signup_hint;
+  return `Hi — welcome to The Hub by TendCo™ (free for our turn clients).\n\nYour invite code: ${d.code}\nCreate your login here: ${url}\n\nQuestions? Reply here or call (813) 682-4292.`;
+}
+document.getElementById('btn-copy-code').onclick = async () => {
+  if (!last) return; await navigator.clipboard.writeText(last.code); toast('Code copied');
+};
+document.getElementById('btn-copy-url').onclick = async () => {
+  if (!last) return; await navigator.clipboard.writeText(last.signup_url || last.signup_hint); toast('Link copied');
+};
+document.getElementById('btn-copy-msg').onclick = async () => {
+  if (!last) return; await navigator.clipboard.writeText(clientMessage(last)); toast('Client message copied');
+};
+
+async function loadOps(){
+  if (!key()) return;
+  try {
+    const data = await api('/admin/turns?limit=100');
+    const rows = data.turns || [];
+    document.getElementById('ops-body').innerHTML = rows.map(t => `<tr>
+      <td>${esc(t.client_name||'')}</td>
+      <td><b>${esc(t.unit_label||'')}</b><div style="font-size:11px;color:var(--faint)">${esc([t.address,t.city].filter(Boolean).join(' · '))}</div></td>
+      <td><span class="pill n">${esc(t.status_label||t.status)}</span></td>
+      <td style="font-size:12px">${esc(t.scheduled_date||'—')}</td>
+      <td style="font-size:12px;max-width:240px">${esc((t.notes||'').slice(0,120))}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="color:var(--muted)">No open turns</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+document.getElementById('btn-ops')?.addEventListener('click', loadOps);
+if (key()) { loadInvites(); loadOps(); }
+
+</script>
+</body>
+</html>

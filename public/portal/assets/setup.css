@@ -1,0 +1,155 @@
+/* create17 — Hub first-run Account creation */
+.setup-body{min-height:100vh;background:radial-gradient(70% 55% at 50% -10%,var(--blue-50),var(--bg) 65%)}
+.setup-shell{min-height:100vh;display:grid;place-items:center;padding:56px 16px 48px}
+.setup-card{
+  width:100%;max-width:560px;background:var(--card);border:1px solid var(--border);
+  border-radius:22px;box-shadow:var(--shadow-lg);padding:28px 28px 22px;
+  animation:fade .35s ease;
+}
+.setup-brand{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.setup-brand .wm{height:28px;width:auto}
+.setup-steps{display:flex;align-items:center;gap:6px}
+.setup-steps span{
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-size:11.5px;font-weight:800;border:1.5px solid var(--border);color:var(--faint);background:#fff;
+}
+.setup-steps span.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.setup-steps span.done{background:var(--green-bg);color:var(--green);border-color:transparent}
+.setup-steps i{width:22px;height:2px;background:var(--border);border-radius:2px}
+.setup-card h1{font-size:22px;font-weight:800;letter-spacing:-.025em;margin:0 0 6px}
+.setup-card .lede{color:var(--muted);font-size:13.5px;margin:0 0 18px;line-height:1.45;max-width:48ch}
+.setup-err{
+  display:none;margin:0 0 12px;padding:10px 12px;border-radius:12px;
+  background:var(--red-bg);border:1.5px solid color-mix(in srgb,var(--red) 30%,var(--border));
+  color:var(--red);font-size:13px;font-weight:700;line-height:1.35;
+}
+.setup-err.on{display:block}
+.setup-foot{display:flex;align-items:center;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);flex-wrap:wrap}
+.setup-foot .sp{flex:1;min-width:8px}
+.setup-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){
+  .setup-card{padding:22px 18px 18px;border-radius:18px}
+  .setup-row2{grid-template-columns:1fr}
+  .setup-card h1{font-size:20px}
+}
+.setup-section-h{
+  font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--faint);margin:16px 0 8px;
+}
+.setup-section-h:first-child{margin-top:0}
+.contact-card,.vendor-card{
+  border:1.5px solid var(--border);border-radius:16px;padding:14px;margin-bottom:10px;background:#FAFBFD;
+}
+.contact-card h3,.vendor-card h3{
+  font-size:14px;font-weight:800;color:var(--navy);margin:0 0 10px;display:flex;align-items:center;gap:8px;
+}
+.vendor-card.tendco{border-color:color-mix(in srgb,var(--blue) 35%,var(--border));background:var(--blue-50)}
+.vendor-badge{
+  font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px;
+  background:var(--blue);color:#fff;letter-spacing:.02em;
+}
+.vendor-badge.prop{background:var(--amber-bg);color:var(--amber)}
+.req-star{color:var(--red);font-weight:800}
+.photo-row{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.photo-preview{
+  width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,var(--accent),var(--navy));
+  display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;overflow:hidden;flex-shrink:0;
+  border:2px solid #fff;box-shadow:0 4px 14px rgba(31,91,216,.25);
+}
+.photo-preview img{width:100%;height:100%;object-fit:cover}
+.photo-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.photo-actions .hint{font-size:11.5px;color:var(--faint);font-weight:600}
+.role-picks{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+@media (max-width:560px){.role-picks{grid-template-columns:1fr}}
+.role-pick{
+  display:flex;align-items:flex-start;gap:10px;padding:12px;border:1.5px solid var(--border);
+  border-radius:14px;cursor:pointer;background:#fff;transition:border .15s,box-shadow .15s;
+}
+.role-pick:hover{border-color:color-mix(in srgb,var(--blue) 40%,var(--border))}
+.role-pick.on{border-color:var(--blue);box-shadow:0 0 0 3px rgba(31,91,216,.12);background:var(--blue-50)}
+.role-pick input{margin-top:3px;accent-color:var(--blue)}
+.role-pick b{display:block;font-size:13.5px;font-weight:800;color:var(--navy)}
+.role-pick small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35;font-weight:600}
+.admin-note{
+  margin:14px 0 0;padding:12px 14px;border-radius:14px;
+  background:color-mix(in srgb,var(--amber) 8%,#fff);
+  border:1px solid color-mix(in srgb,var(--amber) 28%,var(--border));
+  font-size:12.5px;color:var(--navy);line-height:1.45;font-weight:650;
+}
+.admin-note b{color:var(--amber)}
+.team-strip{margin-top:16px}
+.team-strip h3{font-size:13px;font-weight:800;margin:0 0 8px;color:var(--navy)}
+.team-row{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);
+  border-radius:12px;margin-bottom:6px;background:#fff;
+}
+.team-row .av{
+  width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--navy));
+  color:#fff;font-weight:800;font-size:11px;display:grid;place-items:center;flex-shrink:0;
+}
+.team-row .meta{flex:1;min-width:0}
+.team-row .meta b{display:block;font-size:13px;font-weight:750}
+.team-row .meta span{font-size:11.5px;color:var(--muted);font-weight:600}
+.team-row.revoked{opacity:.55}
+.team-row.revoked .meta b{text-decoration:line-through}
+.req-email-field label{color:var(--navy)}
+.req-email-field input{border-color:color-mix(in srgb,var(--blue) 35%,var(--border));background:#fff}
+.vendor-add{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;margin-bottom:8px}
+.field.bad input,.field.bad select{border-color:#DC2626;box-shadow:0 0 0 3px rgba(220,38,38,.12)}
+.setup-done{
+  text-align:center;padding:12px 8px 4px;
+}
+.setup-done .check{
+  width:56px;height:56px;border-radius:18px;margin:0 auto 14px;
+  background:var(--green-bg);color:var(--green);display:grid;place-items:center;
+}
+.setup-done .check svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+
+/* create15 — address / units / building type */
+.btype-picks{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.btype-pick{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;border:1.5px solid var(--border);
+  border-radius:11px;cursor:pointer;background:#fff;font-size:12.5px;font-weight:750;color:var(--navy);
+}
+.btype-pick:hover{border-color:color-mix(in srgb,var(--blue) 40%,var(--border))}
+.btype-pick.on{border-color:var(--blue);background:var(--blue-50);box-shadow:0 0 0 3px rgba(31,91,216,.1)}
+.btype-pick input{accent-color:var(--blue);margin:0}
+.field.bad .btype-picks{outline:2px solid color-mix(in srgb,var(--red) 45%,transparent);outline-offset:2px;border-radius:12px}
+
+
+/* create17 — vendor Skip + viewing-only other vendors */
+.setup-empty-hint{margin:0 0 10px;color:var(--faint);font-size:12.5px;font-weight:600;line-height:1.4}
+.setup-req-hint{margin:4px 0 0;font-size:12px;color:var(--faint);font-weight:600;line-height:1.4}
+.setup-req-hint b{color:var(--navy)}
+.setup-skip-card{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin:18px 0 8px;padding:14px 16px;border-radius:16px;
+  background:linear-gradient(135deg,var(--blue-50),#fff);
+  border:1.5px solid color-mix(in srgb,var(--blue) 28%,var(--border));
+}
+.setup-skip-copy{flex:1;min-width:200px}
+.setup-skip-copy b{display:block;font-size:13.5px;font-weight:800;color:var(--navy);margin-bottom:3px}
+.setup-skip-copy span{display:block;font-size:12.5px;font-weight:600;color:var(--muted);line-height:1.4}
+.setup-other-card{
+  margin-top:18px;padding:16px;border-radius:16px;
+  border:1.5px dashed color-mix(in srgb,#64748B 40%,var(--border));
+  background:color-mix(in srgb,#64748B 5%,#fff);
+}
+.setup-other-prompt{
+  margin:0 0 6px;font-size:14px;font-weight:750;color:var(--navy);line-height:1.45;
+}
+.setup-other-sub{
+  margin:0 0 12px;font-size:12px;font-weight:650;color:var(--muted);line-height:1.4;
+}
+.setup-other-actions{display:flex;flex-wrap:wrap;gap:8px}
+.vendor-badge.viewing{
+  background:color-mix(in srgb,#64748B 16%,#fff);color:#475569;
+  border:1px dashed color-mix(in srgb,#64748B 35%,transparent);
+}
+.vendor-card.viewing{
+  border-style:dashed;border-color:color-mix(in srgb,#64748B 35%,var(--border));
+  background:color-mix(in srgb,#64748B 3%,#fff);
+}
+.setup-viewing-note{margin:6px 0 0;font-size:11.5px;font-weight:650;color:var(--faint);line-height:1.35}
+
+.setup-vw-suggest{margin:0 0 12px}
