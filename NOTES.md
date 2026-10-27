@@ -314,3 +314,33 @@ Cache: `?v=20261026create20`.
 Hub: https://preview.tendcopm.pages.dev/portal/app.html?demo=1&v=20261026create20
 
 Preview only — do not promote to tendcopm.com.
+
+## Houses — address board + area map (preview 2026-10-27 houses1)
+Fernando lock (Oct 26–27): houses are not units. Clicking **Houses** swaps the side menu. The map pinpoints each street address. When one company has homes in more than one area, those homes cluster by area for routing.
+
+Separate from multifamily make-ready. Apartments / Commercial keep Make Ready Board, units, common areas, and the create-unit flow.
+
+### What shipped
+- Portfolio switch under the logo: **Apartments · Houses · Commercial**. Houses hides unit nav and shows **Address board**, **Map**, **Routes**.
+- Address board is keyed by street (no unit numbers). Sample Central Florida SFR book: Oak & Pine (College Park + Winter Park), Lakeside (Conway + Belle Isle), Horizon (Winter Park + Kissimmee), Cedar & Co. (Altamonte).
+- Map (Leaflet + OpenStreetMap): one pin per address. Zoomed out, pins collapse into area clusters labeled with the neighborhood and a count. Open a cluster for numbered stops and a straight-line loop.
+- Routes view splits a company into one loop per area (nearest-neighbor, straight-line miles — not drive time).
+- Add a house stores the address in session only and drops a pin in the chosen area. Make-ready create is unchanged.
+- `?demo=1` runs without the Worker API (local demo board) so the static Pages preview can open. Cache `?v=20261027houses1`.
+
+### Open locally
+Serve `public/` and open the Houses preview:
+
+`python3 -m http.server 4173 --directory public`
+
+http://localhost:4173/portal/app.html?demo=1&v=20261027houses1#houses
+
+Sign-in page: http://localhost:4173/portal/index.html?demo=1 — **Open Houses preview**, or Enter demo (falls through to the app if the API is not bound).
+
+Preview only — do not promote to tendcopm.com. Not Slotify. No production DNS change.
+
+### Follow-ups
+- Persist houses in D1 as addresses, not units.
+- Geocode added homes (v1 places them near the area center).
+- Drive-time routing instead of straight-line nearest neighbor.
+- Real client book instead of the Central Florida sample.

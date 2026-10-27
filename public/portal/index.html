@@ -29,6 +29,7 @@
     </dl>
     <button class="btn pri demo-enter" type="button" id="demo-enter">Enter demo</button>
     <p class="demo-callout-fine">Or use the form → fields are prefilled so you can also experience signing in.</p>
+    <p class="demo-callout-fine"><a href="app.html?demo=1&amp;v=20261027houses1#houses" style="color:#fff;font-weight:800">Open Houses preview</a> — addresses and map, separate from make-ready units.</p>
   </aside>
 
   <div class="login-wrap">
@@ -115,13 +116,15 @@
       });
       const data = await r.json();
       if(!r.ok){
+        if(isDemo){ location.href = 'app.html?demo=1&v=20261027houses1'; return true; }
         showErr(data.error || 'Could not sign in');
         if(btn) btn.disabled = false;
         return false;
       }
-      location.href = isDemo ? 'app?demo=1' : 'app';
+      location.href = isDemo ? 'app.html?demo=1&v=20261027houses1' : 'app';
       return true;
     }catch(err){
+      if(isDemo){ location.href = 'app.html?demo=1&v=20261027houses1'; return true; }
       showErr('Network error. Try again.');
       if(btn) btn.disabled = false;
       return false;
@@ -159,7 +162,7 @@
 
   // If already signed in, go to app
   fetch(API + '/me', {credentials:'include'}).then(r => r.ok ? r.json() : null).then(d => {
-    if(d && d.ok) location.href = isDemo ? 'app?demo=1' : 'app';
+    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027houses1' : 'app';
   }).catch(()=>{});
 
   document.getElementById('login-form').addEventListener('submit', async function(e){

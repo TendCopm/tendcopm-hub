@@ -2451,6 +2451,7 @@ let state = {
   viewingItems: null,  // viewing-only reminders (no vendor / no approval)
   caTab: 'common',
 };
+window.HubState = state;
 
 function toast(msg){
   const t = document.getElementById('toast');
@@ -2458,16 +2459,108 @@ function toast(msg){
   clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('on'), 2600);
 }
 
+/** Offline preview board so `?demo=1` works on static Pages (no Worker API). */
+let demoOffline = false;
+let demoBoardMemory = null;
+
+function portfolioMode(){
+  try {
+    const stored = sessionStorage.getItem('hub_property_mode');
+    if (stored === 'sfh' || stored === 'multifamily' || stored === 'commercial') return stored;
+  } catch {}
+  try {
+    const qm = (new URLSearchParams(location.search).get('mode') || '').toLowerCase();
+    if (qm === 'houses' || qm === 'sfh') return 'sfh';
+    if (qm === 'commercial') return 'commercial';
+    if (qm === 'apartments' || qm === 'multifamily') return 'multifamily';
+  } catch {}
+  const hash = (location.hash || '').replace(/^#/, '').split('/')[0];
+  if (hash.startsWith('houses')) return 'sfh';
+  return (state.user && state.user.property_mode) || 'multifamily';
+}
+
+function lexiconForMode(mode){
+  const base = {
+    Place:'Building', place:'building', board:'Make Ready Board',
+    open_turns:'Open turns', ready_to_walk:'Ready to walk', due_today:'Due today',
+    waiting_photos:'Waiting on photos', request_turn:'Request a turn',
+    empty_board:'Nothing open yet', done_subject_noun:'unit',
+  };
+  if (mode === 'commercial') {
+    return Object.assign({}, base, { Unit:'Suite', unit:'suite', Unit_plural:'Suites', unit_plural:'suites', done_subject_noun:'suite', request_turn:'Request a suite' });
+  }
+  if (mode === 'sfh') {
+    return Object.assign({}, base, { Unit:'Home', unit:'home', Unit_plural:'Homes', unit_plural:'homes', Place:'Street', place:'street', done_subject_noun:'home', request_turn:'Request a home', open_turns:'Open homes' });
+  }
+  return Object.assign({}, base, { Unit:'Unit', unit:'unit', Unit_plural:'Units', unit_plural:'units' });
+}
+
+function localDemoApi(path, opts){
+  const method = String((opts && opts.method) || 'GET').toUpperCase();
+  const p = String(path || '').split('?')[0];
+  if (p === '/board' && method === 'GET') {
+    const mode = portfolioMode();
+    const mem = demoBoardMemory;
+    return {
+      ok: true,
+      user: {
+        name: 'Alex Rivera',
+        email: 'alex@oakridgepm.example',
+        role: 'pm',
+        client_name: 'Oakridge SFR',
+        property_mode: mode,
+      },
+      turns: mem ? mem.turns : [],
+      units: mem ? mem.units : [],
+      kpi: mem && mem.kpi ? mem.kpi : {},
+      lexicon: lexiconForMode(mode),
+      photos_bound: false,
+    };
+  }
+  if (p === '/client' && method === 'PATCH') {
+    try {
+      const body = JSON.parse((opts && opts.body) || '{}');
+      if (body.property_mode) {
+        sessionStorage.setItem('hub_property_mode', body.property_mode);
+        if (state.user) state.user.property_mode = body.property_mode;
+      }
+    } catch {}
+    return { ok: true };
+  }
+  if (p === '/service-requests' && method === 'GET') return { ok: true, requests: [] };
+  if (p === '/schedule' && method === 'GET') return { ok: true, events: (demoBoardMemory && demoBoardMemory.events) || state.events || [] };
+  if (/\/photos$/.test(p) && method === 'GET') return { ok: true, photos: [], photos_bound: false };
+  if (p === '/auth/logout') return { ok: true };
+  // Mutations fall through to each caller's existing demo/offline path.
+  if (method !== 'GET') throw new Error('offline');
+  return { ok: true };
+}
+
 async function api(path, opts = {}){
-  const r = await fetch(API + path, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
-  });
-  const data = await r.json().catch(() => ({}));
-  if (r.status === 401) { location.href = 'index.html'; throw new Error('auth'); }
-  if (!r.ok) throw new Error(data.error || 'Request failed');
-  return data;
+  if (demoOffline && isDemoMode()) return localDemoApi(path, opts);
+  try {
+    const r = await fetch(API + path, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401) {
+      if (isDemoMode()) {
+        demoOffline = true;
+        return localDemoApi(path, opts);
+      }
+      location.href = 'index.html';
+      throw new Error('auth');
+    }
+    if (!r.ok) throw new Error(data.error || 'Request failed');
+    return data;
+  } catch (err) {
+    if (err && err.message === 'auth') throw err;
+    if (!isDemoMode()) throw err;
+    demoOffline = true;
+    return localDemoApi(path, opts);
+  }
 }
 
 function initials(name){
@@ -4537,6 +4630,14 @@ async function loadService(){
 }
 
 async function refresh(){
+  if (demoOffline && demoBoardMemory && state.turns && state.turns.length) {
+    demoBoardMemory = {
+      turns: state.turns,
+      units: state.units || [],
+      kpi: state.kpi || {},
+      events: state.events || [],
+    };
+  }
   const data = await api('/board');
   state.user = data.user;
   state.turns = data.turns || [];
@@ -4544,6 +4645,11 @@ async function refresh(){
   state.kpi = data.kpi || {};
   ensureDemoMakeReady();
   ensurePropertySchedule();
+  if (demoOffline) {
+    const openN = (state.turns || []).filter(t => ['received','scheduled','in_progress','punch'].includes(t.status)).length;
+    state.kpi = state.kpi || {};
+    if (!state.kpi.open) state.kpi.open = openN;
+  }
   state.lexicon = data.lexicon || state.lexicon || null;
   state.photosBound = !!data.photos_bound;
   const L = lex();
@@ -4599,14 +4705,33 @@ async function refresh(){
   if ((location.hash || '').slice(1).split('/')[0] === 'schedule') {
     try { renderCalendar(); } catch {}
   }
+  if (demoOffline) {
+    demoBoardMemory = {
+      turns: state.turns,
+      units: state.units || [],
+      kpi: state.kpi || {},
+      events: state.events || [],
+    };
+  }
+  if (window.HubHouses) {
+    try { window.HubHouses.onRefresh(); } catch {}
+  }
 }
 
 document.getElementById('property-mode-app')?.addEventListener('change', async (e) => {
+  const mode = e.target.value;
+  try { sessionStorage.setItem('hub_property_mode', mode); } catch {}
+  if (state.user) state.user.property_mode = mode;
   try {
-    await api('/client', { method:'PATCH', body: JSON.stringify({ property_mode: e.target.value }) });
-    toast('Hub labels updated');
-    await refresh();
-  } catch (err) { toast(err.message); }
+    await api('/client', { method:'PATCH', body: JSON.stringify({ property_mode: mode }) });
+  } catch (err) {
+    if (!isDemoMode() && !demoOffline) { toast(err.message); return; }
+  }
+  if (mode !== 'sfh') {
+    try { await refresh(); } catch {}
+  }
+  if (window.HubHouses) window.HubHouses.applyMode(mode, { navigate: true });
+  else toast(mode === 'sfh' ? 'Houses' : 'Portfolio updated');
 });
 
 
@@ -5352,7 +5477,7 @@ function renderRollingNotices(){
 }
 
 
-const titles = { turns:'Turns', 'make-ready':'Make Ready Board', 'common-areas':'Common areas', schedule:'Schedule', units:'Units', history:'History', service:'Request service' };
+const titles = { turns:'Turns', 'make-ready':'Make Ready Board', 'common-areas':'Common areas', schedule:'Schedule', units:'Units', history:'History', service:'Request service', houses:'Address board', 'houses-map':'House map', 'houses-routes':'House routes' };
 function showView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
   const el = document.getElementById('view-' + name);
@@ -5367,13 +5492,24 @@ function showView(name){
   if (name === 'history') renderHistory(document.getElementById('hist-q')?.value || '');
   if (name === 'make-ready') renderMakeReadyBoard();
   if (name === 'common-areas') renderCommonAreasView();
+  if (name === 'houses' || name === 'houses-map' || name === 'houses-routes') {
+    try { window.HubHouses && window.HubHouses.render(name); } catch (err) { toast(err.message || 'Houses view failed'); }
+  }
 }
 function route(){
   const raw = (location.hash || '#make-ready').slice(1);
   const parts = raw.split('/');
   const h = parts[0];
-  const allowed = ['turns','make-ready','common-areas','schedule','units','history','service'];
-  showView(allowed.includes(h) ? h : 'make-ready');
+  if (h.startsWith('houses') && window.HubHouses) {
+    const sel = document.getElementById('property-mode-app');
+    if (sel && sel.value !== 'sfh') sel.value = 'sfh';
+    if (state.user) state.user.property_mode = 'sfh';
+    try { sessionStorage.setItem('hub_property_mode', 'sfh'); } catch {}
+    window.HubHouses.applyMode('sfh', { navigate: false });
+  }
+  const allowed = ['turns','make-ready','common-areas','schedule','units','history','service','houses','houses-map','houses-routes'];
+  const fallback = document.body.classList.contains('portfolio-houses') ? 'houses' : 'make-ready';
+  showView(allowed.includes(h) ? h : fallback);
   // Deep-links: #common-areas/new · #common-areas/viewing · #common-areas/viewing/new
   if (h === 'common-areas') {
     if (parts[1] === 'viewing') {
@@ -5756,8 +5892,18 @@ document.getElementById('vw-kind')?.addEventListener('change', (e) => {
 });
 
 refresh().then(() => {
-  // Make Ready Board is the default Hub view (create flow home)
-  if (!location.hash || location.hash === '#' || location.hash === '#turns') {
+  const qMode = (new URLSearchParams(location.search).get('mode') || '').toLowerCase();
+  const hashView = (location.hash || '').replace(/^#/, '').split('/')[0];
+  const wantHouses = (state.user && state.user.property_mode === 'sfh') || qMode === 'houses' || qMode === 'sfh' || hashView.startsWith('houses');
+  // Make Ready Board stays the default. Houses is an explicit portfolio switch.
+  if (wantHouses) {
+    if (state.user) state.user.property_mode = 'sfh';
+    try { sessionStorage.setItem('hub_property_mode', 'sfh'); } catch {}
+    const sel = document.getElementById('property-mode-app');
+    if (sel) sel.value = 'sfh';
+    if (window.HubHouses) window.HubHouses.applyMode('sfh', { navigate: false });
+    if (!hashView.startsWith('houses')) location.hash = 'houses';
+  } else if (!location.hash || location.hash === '#' || location.hash === '#turns') {
     location.hash = 'make-ready';
   }
   route();
