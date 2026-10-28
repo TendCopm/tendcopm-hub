@@ -41,6 +41,7 @@
   const SEED = [
     { id: 'hs-cp-1', street: '812 W Princeton St', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.57285, lng: -81.38955, job: 'Interior paint', status: 'scheduled', window: '2026-11-03', crew: 'Joe', notes: 'Lockbox on the side gate' },
     { id: 'hs-cp-2', street: '640 W Harvard St', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.56995, lng: -81.38540, job: 'Turnover', status: 'in_progress', window: '2026-11-02', crew: 'Ana', notes: 'Owner will meet the crew' },
+    { id: 'hs-hb-1', street: '640 West Harbor Street', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.56740, lng: -81.39320, job: 'House flip', status: 'in_progress', window: '2026-11-02', crew: 'Several crews', notes: 'Longer flip than a unit. Pool, roof, painters, and pressure washing can share a day.', engineer: 'Maya' },
     { id: 'hs-cp-3', street: '1614 N Shine Ave', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.56690, lng: -81.37940, job: 'Carpet', status: 'received', window: '2026-11-04', crew: 'Floor Pro Carpet', notes: '' },
     { id: 'hs-cp-4', street: '415 W Smith St', city: 'Orlando', zip: '32804', areaId: 'college-park', companyId: 'oak-pine', lat: 28.57470, lng: -81.38160, job: 'Punch', status: 'punch', window: '2026-11-03', crew: 'Maya', notes: 'Punch list is on the fridge' },
     { id: 'hs-wp-1', street: '327 N New England Ave', city: 'Winter Park', zip: '32789', areaId: 'winter-park', companyId: 'oak-pine', lat: 28.59390, lng: -81.35540, job: 'Interior paint', status: 'scheduled', window: '2026-11-05', crew: 'Fred', notes: '' },
@@ -62,6 +63,54 @@
     { id: 'hs-al-2', street: '120 Boston Ave', city: 'Altamonte Springs', zip: '32701', areaId: 'altamonte', companyId: 'cedar', lat: 28.65880, lng: -81.39220, job: 'Turnover', status: 'scheduled', window: '2026-11-08', crew: 'TendCo Cleaning', notes: '' },
   ];
 
+  /* One engineer per client book — the apartments supervisor, across street addresses. */
+  const ENGINEERS = {
+    'oak-pine': 'Maya',
+    lakeside: 'Dennis',
+    horizon: 'Joe',
+    cedar: 'Ana',
+  };
+
+  /*
+   * Services sit beside the address. Same date = parallel contractors, not a second day.
+   * Houses missing from this book still show their single job / window / crew.
+   * 640 West Harbor is the long flip (more trades, wider window than a unit).
+   */
+  const SERVICE_BOOK = {
+    'hs-hb-1': [
+      { id: 'hb-strip', label: 'Floor stripping', vendor: 'FloorPro Floors', kind: 'vendor', date: '2026-11-02', status: 'in_progress' },
+      { id: 'hb-wash', label: 'Pressure washing', vendor: 'Harbor Wash Co.', kind: 'vendor', date: '2026-11-02', status: 'scheduled' },
+      { id: 'hb-tile', label: 'Tiles', vendor: 'TileCraft', kind: 'vendor', date: '2026-11-03', status: 'scheduled' },
+      { id: 'hb-land', label: 'Landscaping', vendor: 'Greenline Yards', kind: 'vendor', date: '2026-11-03', status: 'scheduled' },
+      { id: 'hb-paint', label: 'Painters', vendor: 'TendCo Painting', kind: 'inhouse', date: '2026-11-04', status: 'scheduled' },
+      { id: 'hb-roofc', label: 'Roofers', vendor: 'Ridge Roofing', kind: 'vendor', date: '2026-11-04', status: 'scheduled' },
+      { id: 'hb-carp', label: 'Carpet', vendor: 'Floor Pro Carpet', kind: 'vendor', date: '2026-11-05', status: 'scheduled' },
+      { id: 'hb-tree', label: 'Tree trimming', vendor: 'Canopy Tree Care', kind: 'vendor', date: '2026-11-06', status: 'scheduled' },
+      { id: 'hb-gutter', label: 'Gutter cleaning', vendor: 'Ridge Roofing', kind: 'vendor', date: '2026-11-06', status: 'scheduled' },
+      { id: 'hb-pool', label: 'Pool services', vendor: 'Clearwater Pool', kind: 'vendor', date: '2026-11-09', status: 'scheduled' },
+      { id: 'hb-irr', label: 'Irrigation system', vendor: 'Sprinkler South', kind: 'vendor', date: '2026-11-09', status: 'received' },
+      { id: 'hb-roof', label: 'Roof repairs', vendor: 'Ridge Roofing', kind: 'vendor', date: '2026-11-10', status: 'scheduled' },
+      { id: 'hb-clean', label: 'Floor cleaning', vendor: 'TendCo Cleaning', kind: 'inhouse', date: '2026-11-12', status: 'scheduled' },
+      { id: 'hb-walk', label: 'Final walk', vendor: 'Maya', kind: 'inhouse', date: '2026-11-18', status: 'received' },
+    ],
+    'hs-cp-1': [
+      { id: 'cp1-paint', label: 'Interior paint', vendor: 'TendCo Painting', kind: 'inhouse', date: '2026-11-03', status: 'scheduled' },
+      { id: 'cp1-punch', label: 'Punch', vendor: 'Maya', kind: 'inhouse', date: '2026-11-04', status: 'scheduled' },
+    ],
+    'hs-cp-2': [
+      { id: 'cp2-carp', label: 'Carpet', vendor: 'Floor Pro Carpet', kind: 'vendor', date: '2026-11-02', status: 'in_progress' },
+      { id: 'cp2-paint', label: 'Interior paint', vendor: 'TendCo Painting', kind: 'inhouse', date: '2026-11-03', status: 'scheduled' },
+      { id: 'cp2-clean', label: 'Make-ready clean', vendor: 'TendCo Cleaning', kind: 'inhouse', date: '2026-11-05', status: 'scheduled' },
+    ],
+    'hs-cw-1': [
+      { id: 'cw1-land', label: 'Landscaping', vendor: 'Greenline Yards', kind: 'vendor', date: '2026-11-04', status: 'scheduled' },
+      { id: 'cw1-paint', label: 'Painters', vendor: 'TendCo Painting', kind: 'inhouse', date: '2026-11-04', status: 'scheduled' },
+      { id: 'cw1-clean', label: 'Make-ready clean', vendor: 'TendCo Cleaning', kind: 'inhouse', date: '2026-11-06', status: 'received' },
+    ],
+  };
+
+  const SPAN_KEY = 'hub_houses_span_v1';
+
   const ui = {
     company: 'all',
     scope: 'all',
@@ -69,6 +118,9 @@
     focusId: null,
     focusAreaId: null,
     view: 'houses',
+    /* all = map shows every location. day/week/month highlight booked houses. */
+    spanMode: 'all',
+    anchor: '2026-11-02',
   };
 
   let map = null;
@@ -85,6 +137,155 @@
   function companyById(id) { return COMPANIES.find(c => c.id === id) || null; }
   function companyName(id) { return (companyById(id) || {}).name || 'Company'; }
   function statusMeta(status) { return STATUS[status] || STATUS.received; }
+
+  function engineerFor(h) {
+    if (!h) return '';
+    if (h.engineer) return h.engineer;
+    return ENGINEERS[h.companyId] || '';
+  }
+
+  function vendorKind(name) {
+    const n = String(name || '');
+    if (/^TendCo\b/.test(n) || /^(Joe|Fred|Dennis|Ana|Maya)$/.test(n)) return 'inhouse';
+    return 'vendor';
+  }
+
+  function keyParts(key) {
+    if (typeof parseKey === 'function') return parseKey(key);
+    const [y, m, d] = String(key || '').split('-').map(Number);
+    return new Date(y || 2026, (m || 1) - 1, d || 1, 12, 0, 0);
+  }
+
+  function shiftKey(key, n) {
+    if (typeof addDaysKey === 'function') return addDaysKey(key, n);
+    const d = keyParts(key);
+    d.setDate(d.getDate() + n);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function fmtDay(key) {
+    if (!key) return 'TBD';
+    if (typeof fmtDate === 'function') return fmtDate(key) || key;
+    return key;
+  }
+
+  function weekdayShort(key) {
+    try { return keyParts(key).toLocaleDateString('en-US', { weekday: 'short' }); }
+    catch { return ''; }
+  }
+
+  function monthTitle(key) {
+    try { return keyParts(key).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
+    catch { return key || ''; }
+  }
+
+  function weekStart(key) {
+    const day = keyParts(key).getDay();
+    const delta = day === 0 ? -6 : 1 - day;
+    return shiftKey(key, delta);
+  }
+
+  function weekEnd(key) { return shiftKey(weekStart(key), 6); }
+
+  function monthStart(key) {
+    const d = keyParts(key);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+  }
+
+  function monthEnd(key) {
+    const d = keyParts(key);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0, 12, 0, 0);
+    return last.getFullYear() + '-' + String(last.getMonth() + 1).padStart(2, '0') + '-' + String(last.getDate()).padStart(2, '0');
+  }
+
+  function loadSpan() {
+    try {
+      const raw = JSON.parse(sessionStorage.getItem(SPAN_KEY) || 'null');
+      if (!raw || typeof raw !== 'object') return;
+      if (raw.mode !== 'all' && raw.mode !== 'day' && raw.mode !== 'week' && raw.mode !== 'month') return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.anchor || '')) return;
+      ui.spanMode = raw.mode;
+      ui.anchor = raw.anchor;
+    } catch {}
+  }
+
+  function saveSpan() {
+    try { sessionStorage.setItem(SPAN_KEY, JSON.stringify({ mode: ui.spanMode, anchor: ui.anchor })); } catch {}
+  }
+
+  function spanBounds() {
+    if (ui.spanMode === 'day') return { start: ui.anchor, end: ui.anchor };
+    if (ui.spanMode === 'week') return { start: weekStart(ui.anchor), end: weekEnd(ui.anchor) };
+    if (ui.spanMode === 'month') return { start: monthStart(ui.anchor), end: monthEnd(ui.anchor) };
+    return null;
+  }
+
+  function dateInSpan(date) {
+    if (!date || ui.spanMode === 'all') return false;
+    const b = spanBounds();
+    return !!b && date >= b.start && date <= b.end;
+  }
+
+  function decorate(h) {
+    const services = (Array.isArray(h.services) && h.services.length) ? h.services : SERVICE_BOOK[h.id];
+    const engineer = h.engineer || ENGINEERS[h.companyId] || '';
+    if (!services && !engineer) return h;
+    const next = Object.assign({}, h);
+    if (engineer) next.engineer = engineer;
+    if (services) next.services = services;
+    return next;
+  }
+
+  function homeServices(h) {
+    if (!h) return [];
+    let list = Array.isArray(h.services) && h.services.length ? h.services : null;
+    if (!list && (h.window || h.job)) {
+      list = [{
+        id: h.id + '-job',
+        label: h.job || 'Service',
+        vendor: h.crew || 'Unassigned',
+        kind: vendorKind(h.crew),
+        date: h.window || '',
+        status: h.status || 'received',
+      }];
+    }
+    return (list || []).slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  }
+
+  function groupByDate(services) {
+    const map = new Map();
+    services.forEach(s => {
+      const k = s.date || 'tbd';
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(s);
+    });
+    return [...map.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  }
+
+  function houseInSpan(h) {
+    if (ui.spanMode === 'all') return true;
+    return homeServices(h).some(s => s.date && dateInSpan(s.date));
+  }
+
+  function servicesInSpan(h) {
+    return homeServices(h).filter(s => s.date && dateInSpan(s.date));
+  }
+
+  function spanLabel() {
+    if (ui.spanMode === 'all') return 'All dates';
+    if (ui.spanMode === 'day') return weekdayShort(ui.anchor) + ' ' + fmtDay(ui.anchor);
+    if (ui.spanMode === 'week') return 'Week of ' + fmtDay(weekStart(ui.anchor));
+    return monthTitle(ui.anchor);
+  }
+
+  function bookedHomes(list) {
+    const homes = list || filteredHomes();
+    if (ui.spanMode === 'all') return homes;
+    return homes.filter(houseInSpan);
+  }
 
   function loadExtras() {
     try {
@@ -134,8 +335,8 @@
     return SEED.concat(loadExtras()).map(h => {
       const row = houses[h.id];
       const url = (row && typeof row.exteriorPhotoUrl === 'string' && row.exteriorPhotoUrl) || h.exteriorPhotoUrl || '';
-      if (!url) return h;
-      return Object.assign({}, h, { exteriorPhotoUrl: url });
+      const base = url ? Object.assign({}, h, { exteriorPhotoUrl: url }) : h;
+      return decorate(base);
     });
   }
 
@@ -250,7 +451,8 @@
       if (areaLimit && h.areaId !== ui.focusAreaId) return false;
       if (!q) return true;
       const area = AREAS[h.areaId];
-      const blob = [h.street, h.city, h.zip, area && area.name, companyName(h.companyId), h.job, h.crew, h.notes].join(' ').toLowerCase();
+      const svcBlob = homeServices(h).map(s => (s.label || '') + ' ' + (s.vendor || '')).join(' ');
+      const blob = [h.street, h.city, h.zip, area && area.name, companyName(h.companyId), engineerFor(h), h.job, h.crew, h.notes, svcBlob].join(' ').toLowerCase();
       return blob.includes(q);
     });
   }
@@ -267,7 +469,7 @@
     const sub = document.getElementById('hs-board-sub');
     if (sub) {
       const homes = allHomes();
-      sub.textContent = homes.length + ' addresses · ' + n + ' open. Keyed by street, not unit number. Sample Central Florida book.';
+      sub.textContent = homes.length + ' addresses · ' + n + ' open. One engineer oversees several homes. Open a house for every service and its calendar.';
     }
   }
 
@@ -296,6 +498,24 @@
     if (el) el.innerHTML = filterBarHtml();
   }
 
+  function rowSummary(h) {
+    const svcs = homeServices(h);
+    if (svcs.length <= 1) {
+      const s = svcs[0];
+      const label = (s && s.label) || h.job || '—';
+      const who = (s && s.vendor) || h.crew || 'Unassigned';
+      const when = (s && s.date) ? fmtDay(s.date) : whenLabel(h);
+      return esc(label) + ' · ' + esc(when) + ' · ' + esc(who);
+    }
+    const dates = svcs.map(s => s.date).filter(Boolean).sort();
+    const max = groupByDate(svcs).reduce((m, pair) => Math.max(m, pair[1].length), 1);
+    const range = dates.length
+      ? (fmtDay(dates[0]) + (dates[0] !== dates[dates.length - 1] ? ' – ' + fmtDay(dates[dates.length - 1]) : ''))
+      : whenLabel(h);
+    const parallel = max > 1 ? ' · parallel crews' : '';
+    return esc(svcs.length + ' services · ' + range + parallel);
+  }
+
   function paintBoard() {
     const root = document.getElementById('hs-board');
     if (!root) return;
@@ -305,7 +525,11 @@
       root.innerHTML = '<p class="hs-empty">No addresses match.</p>';
       return;
     }
-    root.innerHTML = groups.map(g => {
+    const harbor = homes.find(h => h.id === 'hs-hb-1');
+    const jump = harbor
+      ? `<div class="hs-note">Open <button type="button" class="hs-jump" data-hs-act="open" data-id="hs-hb-1">640 West Harbor Street</button> — full house profile, overlapping crews on one date, and that house’s calendar.</div>`
+      : '';
+    root.innerHTML = jump + groups.map(g => {
       const onlyCompany = new Set(g.homes.map(h => h.companyId)).size === 1 ? g.homes[0].companyId : 'all';
       return `<section class="hs-area">
         <header class="hs-area-h">
@@ -319,9 +543,11 @@
           const meta = statusMeta(h.status);
           const on = h.id === ui.focusId ? ' on' : '';
           const done = h.status === 'complete' ? ' done' : '';
-          return `<button type="button" class="hs-row${on}${done}" data-hs-act="open" data-id="${esc(h.id)}">
-            <span class="hs-row-main"><b>${esc(h.street)}</b><small>${esc(h.city)}, FL ${esc(h.zip)} · ${esc(companyName(h.companyId))}</small></span>
-            <span class="hs-row-job">${esc(h.job)} · ${esc(whenLabel(h))} · ${esc(h.crew || 'Unassigned')}</span>
+          const marked = ui.spanMode !== 'all' && houseInSpan(h) ? ' in-span' : '';
+          const eng = engineerFor(h);
+          return `<button type="button" class="hs-row${on}${done}${marked}" data-hs-act="open" data-id="${esc(h.id)}">
+            <span class="hs-row-main"><b>${esc(h.street)}</b><small>${esc(h.city)}, FL ${esc(h.zip)} · ${esc(companyName(h.companyId))}${eng ? ' · ' + esc(eng) : ''}</small></span>
+            <span class="hs-row-job">${rowSummary(h)}</span>
             <span class="pill ${meta.pill}">${esc(meta.label)}</span>
           </button>`;
         }).join('')}
@@ -376,13 +602,208 @@
     }).join('');
   }
 
+  function housesOnDate(list, date) {
+    const seen = new Set();
+    list.forEach(h => {
+      if (homeServices(h).some(s => s.date === date)) seen.add(h.id);
+    });
+    return seen.size;
+  }
+
+  function monthCellsHtml(countFn) {
+    const start = monthStart(ui.anchor);
+    const end = monthEnd(ui.anchor);
+    const firstDow = keyParts(start).getDay();
+    const lead = firstDow === 0 ? 6 : firstDow - 1;
+    let html = '';
+    for (let i = 0; i < lead; i++) html += '<span class="hs-cal-pad"></span>';
+    let cursor = start;
+    while (cursor <= end) {
+      const n = countFn(cursor) || 0;
+      const cls = ['hs-cal-cell'];
+      if (n) cls.push('has');
+      if (n > 1) cls.push('multi');
+      if (dateInSpan(cursor)) cls.push('in-span');
+      if (ui.spanMode === 'day' && cursor === ui.anchor) cls.push('on');
+      const dots = n ? '<span class="hs-cal-dots">' + '<i></i>'.repeat(Math.min(n, 3)) + (n > 1 ? '<em>' + n + '</em>' : '') + '</span>' : '<span class="hs-cal-dots"></span>';
+      html += `<button type="button" class="${cls.join(' ')}" data-hs-act="cal-day" data-date="${cursor}"><b>${Number(cursor.slice(8))}</b>${dots}</button>`;
+      cursor = shiftKey(cursor, 1);
+    }
+    return html;
+  }
+
+  function calChromeHtml(note) {
+    const modes = [
+      ['all', 'All'],
+      ['day', 'Day'],
+      ['week', 'Week'],
+      ['month', 'Month'],
+    ].map(([id, label]) => `<button type="button" class="seg-btn${ui.spanMode === id ? ' on' : ''}" data-hs-act="span-mode" data-mode="${id}">${label}</button>`).join('');
+    return `<div class="hs-cal-h">
+        <div class="hs-cal-nav">
+          <button type="button" class="ibtn" data-hs-act="span-nav" data-dir="-1" aria-label="Previous">‹</button>
+          <strong>${esc(monthTitle(ui.anchor))}</strong>
+          <button type="button" class="ibtn" data-hs-act="span-nav" data-dir="1" aria-label="Next">›</button>
+        </div>
+        <div class="seg seg-sm hs-cal-modes" role="group" aria-label="Map range">${modes}</div>
+      </div>
+      <p class="hs-cal-note">${note}</p>
+      <div class="hs-cal-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>`;
+  }
+
+  function spanNote() {
+    const n = bookedHomes(filteredHomes()).length;
+    if (ui.spanMode === 'all') return 'Pick a day, week, or month. The map highlights the houses booked then.';
+    if (ui.spanMode === 'day') return esc(spanLabel()) + ' highlights ' + n + ' house' + (n === 1 ? '' : 's') + ' on the map.';
+    if (ui.spanMode === 'week') return esc(spanLabel()) + ' shows ' + n + ' house' + (n === 1 ? '' : 's') + ' booked that week.';
+    return esc(spanLabel()) + ' shows ' + n + ' house' + (n === 1 ? '' : 's') + ' scheduled that month.';
+  }
+
+  function houseCalendarHtml(h) {
+    const svcs = homeServices(h);
+    const count = date => svcs.filter(s => s.date === date).length;
+    return `<section class="hs-cal" id="hs-profile-cal" aria-label="Calendar for this house">
+      <h4>House calendar</h4>
+      ${calChromeHtml('<span>Dots are crews on this house. ' + spanNote() + '</span>')}
+      <div class="hs-cal-grid">${monthCellsHtml(count)}</div>
+    </section>`;
+  }
+
+  function portfolioCalendarHtml() {
+    const homes = filteredHomes();
+    const count = date => housesOnDate(homes, date);
+    return `<section class="hs-cal hs-cal-map" aria-label="Houses booked by day">
+      <h4>Booked houses</h4>
+      ${calChromeHtml(spanNote())}
+      <div class="hs-cal-grid">${monthCellsHtml(count)}</div>
+    </section>`;
+  }
+
+  function timelineHtml(h) {
+    const services = homeServices(h);
+    const groups = groupByDate(services);
+    const dates = services.map(s => s.date).filter(Boolean).sort();
+    const overlapDays = groups.filter(pair => pair[1].length > 1).length;
+    const range = dates.length > 1 ? fmtDay(dates[0]) + ' – ' + fmtDay(dates[dates.length - 1]) : (dates[0] ? fmtDay(dates[0]) : 'TBD');
+    const head = services.length + ' service' + (services.length === 1 ? '' : 's')
+      + ' · ' + range
+      + (overlapDays ? ' · ' + overlapDays + ' day' + (overlapDays === 1 ? '' : 's') + ' with crews on site together' : '');
+    const rows = groups.map(([date, list]) => {
+      const overlap = list.length > 1;
+      const on = date !== 'tbd' && dateInSpan(date) ? ' on' : '';
+      const lanes = list.map(s => {
+        const kind = s.kind === 'inhouse' ? 'inhouse' : 'vendor';
+        const kindLabel = kind === 'inhouse' ? 'In-house' : 'Vendor';
+        const st = statusMeta(s.status || 'scheduled');
+        return `<article class="hs-lane" data-kind="${kind}">
+          <header><b>${esc(s.label)}</b><span class="pill ${st.pill}">${esc(st.label)}</span></header>
+          <p>${esc(s.vendor || 'Unassigned')}</p>
+          <small>${kindLabel}</small>
+        </article>`;
+      }).join('');
+      const flag = overlap ? `<div class="hs-tl-flag">${list.length} contractors · same day</div>` : '';
+      const when = date === 'tbd'
+        ? '<b>TBD</b>'
+        : `<b>${esc(weekdayShort(date))}</b><span>${esc(fmtDay(date))}</span>`;
+      const dateBtn = date === 'tbd'
+        ? `<div class="hs-tl-date">${when}</div>`
+        : `<button type="button" class="hs-tl-date" data-hs-act="span-day" data-date="${esc(date)}">${when}</button>`;
+      return `<div class="hs-tl-day${on}${overlap ? ' overlap' : ''}">${dateBtn}<div class="hs-tl-lanes">${lanes}${flag}</div></div>`;
+    }).join('');
+    return `<section class="hs-tl" id="hs-profile-tl">
+      <h4>Services</h4>
+      <p class="hs-tl-sum">${esc(head)}</p>
+      ${rows || '<p class="hs-empty">No services on this house yet.</p>'}
+    </section>`;
+  }
+
+  function spanBarHtml() {
+    const n = ui.spanMode === 'all' ? filteredHomes().length : bookedHomes(filteredHomes()).length;
+    const title = ui.spanMode === 'all' ? 'Map · all locations' : 'Map · ' + spanLabel();
+    const detail = ui.spanMode === 'all'
+      ? 'Every address stays on the map until a day, week, or month is selected.'
+      : spanLabel() + ' · ' + n + ' house' + (n === 1 ? '' : 's') + ' highlighted.';
+    const modes = [
+      ['all', 'All'],
+      ['day', 'Day'],
+      ['week', 'Week'],
+      ['month', 'Month'],
+    ].map(([id, label]) => `<button type="button" class="seg-btn${ui.spanMode === id ? ' on' : ''}" data-hs-act="span-mode" data-mode="${id}">${label}</button>`).join('');
+    return `<div class="hs-span">
+      <div><b>${esc(title)}</b><span>${esc(detail)}</span></div>
+      <div class="seg seg-sm" role="group" aria-label="Map range">${modes}</div>
+    </div>`;
+  }
+
+  function paintSpanBars() {
+    ['hs-span-board', 'hs-span-map'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = spanBarHtml();
+    });
+  }
+
+  function shiftAnchor(dir) {
+    const n = dir < 0 ? -1 : 1;
+    let next = ui.anchor;
+    if (ui.spanMode === 'day') next = shiftKey(ui.anchor, n);
+    else if (ui.spanMode === 'week') next = shiftKey(ui.anchor, n * 7);
+    else {
+      const d = keyParts(monthStart(ui.anchor));
+      d.setMonth(d.getMonth() + n);
+      next = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+    }
+    setSpan(ui.spanMode, next);
+  }
+
+  function paintProfileLive() {
+    const h = homeById(ui.focusId);
+    const body = document.getElementById('hs-d-body');
+    if (!h || !body) return;
+    const tl = body.querySelector('#hs-profile-tl');
+    const cal = body.querySelector('#hs-profile-cal');
+    if (!tl || !cal) return;
+    tl.outerHTML = timelineHtml(h);
+    cal.outerHTML = houseCalendarHtml(h);
+  }
+
+  function setSpan(mode, anchor) {
+    const next = mode || 'all';
+    ui.spanMode = (next === 'day' || next === 'week' || next === 'month') ? next : 'all';
+    if (anchor && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) ui.anchor = anchor;
+    saveSpan();
+    fitKey = '';
+    paintSpanBars();
+    paintProfileLive();
+    const view = houseView();
+    if (view === 'houses') paintBoard();
+    if (view === 'houses-map') {
+      const pool = filteredHomes({ area: !!ui.focusAreaId });
+      const hits = ui.spanMode === 'all' ? pool : pool.filter(houseInSpan);
+      if (map) fitTo((hits.length ? hits : pool));
+      paintMapSide();
+    }
+  }
+
   function paintMapSide() {
     const side = document.getElementById('hs-map-side');
     if (!side) return;
     const focused = ui.focusAreaId && AREAS[ui.focusAreaId];
     const homes = filteredHomes({ area: !!focused });
+    const cal = portfolioCalendarHtml();
     if (!homes.length) {
-      side.innerHTML = '<h3>No addresses</h3><p class="sub">Nothing matches this company or search.</p>';
+      side.innerHTML = cal + '<h3>No addresses</h3><p class="sub">Nothing matches this company or search.</p>';
+      return;
+    }
+    if (ui.spanMode !== 'all') {
+      const booked = homes.filter(houseInSpan);
+      const clearArea = focused ? `<div class="hs-side-actions"><button type="button" class="btn ghost sm" data-hs-act="clear-focus">All areas</button></div>` : '';
+      const noun = ui.spanMode === 'day' ? 'this day' : (ui.spanMode === 'week' ? 'this week' : 'this month');
+      side.innerHTML = clearArea + `<h3>${esc(spanLabel())}</h3><p class="sub">${booked.length} house${booked.length === 1 ? '' : 's'} booked ${noun}. Other addresses stay on the map, dimmed.</p>`
+        + (booked.length ? booked.map(h => {
+          const who = servicesInSpan(h).map(s => s.label).join(' · ');
+          return `<button type="button" class="hs-stop${h.id === ui.focusId ? ' on' : ''}" data-hs-act="open" data-id="${esc(h.id)}"><b>${esc(h.street)}</b><span>${esc(who || h.job || 'Booked')}</span></button>`;
+        }).join('') : '<p class="hs-empty">No houses booked in this range.</p>')
+        + cal;
       return;
     }
     if (focused) {
@@ -391,14 +812,14 @@
       const mix = companyMix(homes);
       const multiCo = new Set(homes.map(h => h.companyId)).size > 1;
       const leg = g ? legs(g.routed) : [];
-      side.innerHTML = `<div class="hs-side-actions"><button type="button" class="btn ghost sm" data-hs-act="clear-focus">All areas</button></div>
+      side.innerHTML = cal + `<div class="hs-side-actions"><button type="button" class="btn ghost sm" data-hs-act="clear-focus">All areas</button></div>
         <h3>${esc((ui.company !== 'all' ? companyName(ui.company) + ' · ' : '') + focused.name)}</h3>
         <p class="sub">${multiCo ? 'Proximity loop — every company in this neighborhood.' : 'Company loop — these stops stay in one area.'} ${esc(mix)}. About ${esc(g ? fmtMi(g.loopMiles) : '')} straight-line.</p>
         ${(g ? g.routed : []).map((h, i) => `<button type="button" class="hs-stop${h.id === ui.focusId ? ' on' : ''}" data-hs-act="open" data-id="${esc(h.id)}"><b>${i + 1}. ${esc(h.street)}</b><span>${esc(h.job)} · ${esc(h.crew || 'Unassigned')} · ${i === 0 ? 'Start' : esc(fmtMi(leg[i]))}</span></button>`).join('')}`;
       return;
     }
     const groups = groupsFrom(homes);
-    side.innerHTML = `<h3>Areas</h3><p class="sub">Zoomed out, each bubble is a neighborhood. Open one to see a pin per address and a stop order.</p>
+    side.innerHTML = cal + `<h3>Areas</h3><p class="sub">Zoomed out, each bubble is a neighborhood. Open one to see a pin per address and a stop order.</p>
       ${groups.map(g => `<button type="button" class="hs-area-btn" data-hs-act="route" data-company="${esc(ui.company)}" data-area="${esc(g.areaId)}"><b>${esc(g.area.name)} · ${g.homes.length}</b><span>${esc(companyMix(g.homes))} · about ${esc(fmtMi(g.loopMiles))}</span></button>`).join('')}`;
   }
 
@@ -416,7 +837,8 @@
     const homes = filteredHomes({ area: !!ui.focusAreaId });
     layer.clearLayers();
     if (!homes.length) return;
-    const cluster = shouldCluster(homes);
+    const spanOn = ui.spanMode !== 'all';
+    const cluster = !spanOn && shouldCluster(homes);
     if (cluster) {
       groupsFrom(homes).forEach(g => {
         const icon = L.divIcon({
@@ -437,18 +859,21 @@
       });
       return;
     }
-    const open = homes.filter(h => h.status !== 'complete');
-    const ordered = routeOrder(open.length ? open : homes);
+    const open = homes.filter(h => h.status !== 'complete' && (!spanOn || houseInSpan(h)));
+    const ordered = routeOrder(open.length ? open : homes.filter(h => !spanOn || houseInSpan(h)));
     const orderOf = new Map(ordered.map((h, i) => [h.id, i + 1]));
-    if (ui.focusAreaId && ordered.length > 1) {
+    if (ui.focusAreaId && !spanOn && ordered.length > 1) {
       L.polyline(ordered.map(h => [h.lat, h.lng]), {
         color: '#1F5BD8', weight: 3, opacity: 0.9,
       }).addTo(layer);
     }
     homes.forEach(h => {
-      const n = ui.focusAreaId ? orderOf.get(h.id) : 0;
+      const hit = !spanOn || houseInSpan(h);
+      const dim = spanOn && !hit;
+      const n = (ui.focusAreaId && !spanOn) ? orderOf.get(h.id) : 0;
       const on = h.id === ui.focusId;
       const done = h.status === 'complete';
+      const pinCls = `${on ? ' on' : ''}${done ? ' done' : ''}${spanOn && hit ? ' hit' : ''}${dim ? ' dim' : ''}`;
       const icon = n
         ? L.divIcon({
           className: 'hs-divicon',
@@ -458,12 +883,13 @@
         })
         : L.divIcon({
           className: 'hs-divicon',
-          html: `<div class="hs-pin${on ? ' on' : ''}${done ? ' done' : ''}"></div>`,
-          iconSize: [on ? 18 : 14, on ? 18 : 14],
-          iconAnchor: [on ? 9 : 7, on ? 9 : 7],
+          html: `<div class="hs-pin${pinCls}"></div>`,
+          iconSize: [(on || (spanOn && hit)) ? 18 : 14, (on || (spanOn && hit)) ? 18 : 14],
+          iconAnchor: [(on || (spanOn && hit)) ? 9 : 7, (on || (spanOn && hit)) ? 9 : 7],
         });
-      const marker = L.marker([h.lat, h.lng], { icon, keyboard: true, title: h.street, zIndexOffset: on ? 400 : 0 });
-      marker.bindTooltip(h.street, { direction: 'top', offset: [0, -6], className: 'hs-pin-tip' });
+      const marker = L.marker([h.lat, h.lng], { icon, keyboard: true, title: h.street, zIndexOffset: (spanOn && hit) ? 500 : (on ? 400 : (dim ? -20 : 0)) });
+      const tipNames = (spanOn && hit) ? servicesInSpan(h).map(s => s.label).join(' · ') : '';
+      marker.bindTooltip(tipNames ? (h.street + ' · ' + tipNames) : h.street, { direction: 'top', offset: [0, -6], className: 'hs-pin-tip' });
       marker.on('click', () => openHouse(h.id));
       marker.addTo(layer);
     });
@@ -530,11 +956,13 @@
     }
     if (fb) fb.hidden = true;
     const areaKey = [...new Set(homes.map(h => h.areaId))].sort().join(',');
-    const nextKey = [ui.company, ui.focusAreaId || '', ui.scope, areaKey].join('|');
+    const nextKey = [ui.company, ui.focusAreaId || '', ui.scope, areaKey, ui.spanMode, ui.anchor].join('|');
     const sized = map.getSize && map.getSize().y > 40;
+    const spanHits = ui.spanMode === 'all' ? homes : homes.filter(houseInSpan);
+    const fitHomes = spanHits.length ? spanHits : homes;
     if (nextKey !== fitKey || !sized) {
       fitKey = nextKey;
-      fitTo(homes.length ? homes : filteredHomes());
+      fitTo(fitHomes.length ? fitHomes : filteredHomes());
     } else {
       drawMap();
     }
@@ -543,7 +971,11 @@
       if (!map) return;
       const before = map.getSize().y;
       try { map.invalidateSize(); } catch { return; }
-      if (before < 40 && map.getSize().y > 40) fitTo(filteredHomes({ area: !!ui.focusAreaId }));
+      if (before < 40 && map.getSize().y > 40) {
+        const again = filteredHomes({ area: !!ui.focusAreaId });
+        const hits = ui.spanMode === 'all' ? again : again.filter(houseInSpan);
+        fitTo(hits.length ? hits : again);
+      }
     }, 80);
   }
 
@@ -551,6 +983,7 @@
     syncFromHash();
     ui.view = name || houseView();
     refreshNavCount();
+    paintSpanBars();
     if (ui.view === 'houses') {
       paintFilterBar(document.getElementById('hs-filters-board'));
       paintBoard();
@@ -774,25 +1207,39 @@
     if (typeof closeDrawer === 'function') closeDrawer();
     const meta = statusMeta(h.status);
     const area = AREAS[h.areaId];
+    const eng = engineerFor(h);
+    const others = allHomes().filter(x => engineerFor(x) === eng && x.id !== h.id);
+    const svcs = homeServices(h);
+    const dates = svcs.map(s => s.date).filter(Boolean).sort();
+    const spanTxt = dates.length
+      ? (fmtDay(dates[0]) + (dates[0] !== dates[dates.length - 1] ? ' – ' + fmtDay(dates[dates.length - 1]) : ''))
+      : whenLabel(h);
     document.getElementById('hs-d-title').textContent = h.street;
-    document.getElementById('hs-d-sub').textContent = h.city + ', FL ' + (h.zip || '');
+    document.getElementById('hs-d-sub').textContent = h.city + ', FL ' + (h.zip || '') + ' · House profile';
     document.getElementById('hs-d-body').innerHTML = `
-      ${curbHtml(h)}
-      <span class="pill ${meta.pill}">${esc(meta.label)}</span>
-      <dl class="hs-kv">
-        <dt>Address</dt><dd>${esc(h.street)}<br>${esc(h.city)}, FL ${esc(h.zip || '')}</dd>
-        <dt>Area</dt><dd>${esc(area ? area.name : '')}</dd>
-        <dt>Company</dt><dd>${esc(companyName(h.companyId))}</dd>
-        <dt>Job</dt><dd>${esc(h.job || '—')}</dd>
-        <dt>Window</dt><dd>${esc(whenLabel(h))}</dd>
-        <dt>Crew</dt><dd>${esc(h.crew || 'Unassigned')}</dd>
-        ${h.notes ? `<dt>Notes</dt><dd>${esc(h.notes)}</dd>` : ''}
-      </dl>
+      <div class="hs-prof-head">
+        ${curbHtml(h)}
+        <div class="hs-prof-facts">
+          <div class="hs-prof-top">
+            <span class="pill ${meta.pill}">${esc(meta.label)}</span>
+            <span class="hs-eng">Engineer ${esc(eng || '—')}</span>
+          </div>
+          <p class="hs-prof-lead">${esc(eng || 'The engineer')} oversees this home and ${others.length} other${others.length === 1 ? '' : 's'} for ${esc(companyName(h.companyId))}. Each home is its own address.</p>
+          <p class="hs-flip">${esc(spanTxt)} · ${svcs.length} service${svcs.length === 1 ? '' : 's'}</p>
+          <dl class="hs-kv">
+            <dt>Address</dt><dd>${esc(h.street)}, ${esc(h.city)}, FL ${esc(h.zip || '')}</dd>
+            <dt>Area</dt><dd>${esc(area ? area.name : '')}</dd>
+            <dt>Company</dt><dd>${esc(companyName(h.companyId))}</dd>
+            ${h.notes ? `<dt>Notes</dt><dd>${esc(h.notes)}</dd>` : ''}
+          </dl>
+        </div>
+      </div>
+      ${timelineHtml(h)}
+      ${houseCalendarHtml(h)}
       <div class="hs-side-actions">
         <button type="button" class="btn pri sm" data-hs-act="show-map" data-id="${esc(h.id)}">Show on map</button>
         ${h.userAdded ? `<button type="button" class="btn ghost sm" data-hs-act="remove" data-id="${esc(h.id)}">Remove</button>` : ''}
-      </div>
-      <p class="sub" style="color:var(--muted);font-size:12.5px;margin-top:8px">This is a house, tracked by street address — not a make-ready unit.</p>`;
+      </div>`;
     const drawer = document.getElementById('house-drawer');
     const bg = document.getElementById('house-drawer-bg');
     try { mountCurb(h); } catch {}
@@ -963,8 +1410,38 @@
       const h = homeById(el.dataset.id);
       if (!h) return;
       ui.focusId = h.id;
-      ui.company = h.companyId;
-      location.hash = 'houses-map/' + h.companyId + '/' + h.areaId;
+      closeHouseDrawer();
+      let next;
+      if (ui.spanMode === 'all') {
+        ui.company = h.companyId;
+        next = 'houses-map/' + h.companyId + '/' + h.areaId;
+      } else {
+        ui.focusAreaId = null;
+        next = ui.company !== 'all' ? ('houses-map/' + ui.company) : 'houses-map';
+      }
+      if ((location.hash || '') === '#' + next) render('houses-map');
+      else location.hash = next;
+    }
+    else if (act === 'span-day') {
+      e.preventDefault();
+      const date = el.dataset.date;
+      if (date && date !== 'tbd') setSpan('day', date);
+    }
+    else if (act === 'cal-day') {
+      e.preventDefault();
+      const date = el.dataset.date;
+      if (!date) return;
+      if (ui.spanMode === 'week') setSpan('week', date);
+      else if (ui.spanMode === 'month') setSpan('month', date);
+      else setSpan('day', date);
+    }
+    else if (act === 'span-mode') {
+      e.preventDefault();
+      setSpan(el.dataset.mode || 'all', ui.anchor);
+    }
+    else if (act === 'span-nav') {
+      e.preventDefault();
+      shiftAnchor(Number(el.dataset.dir) || 1);
     }
     else if (act === 'clear-focus') {
       e.preventDefault();
@@ -1026,7 +1503,7 @@
       setText('prop-initials', 'HS');
       setText('prop-meta', homes.length + ' addresses · ' + areas + ' areas');
       setText('banner-client', '· Houses');
-      if (free) free.textContent = 'Free for TendCo™ clients — address board and map for houses. Separate from unit make-ready.';
+      if (free) free.textContent = 'Free for TendCo™ clients — one engineer, several houses. Each address has its own services and calendar.';
       refreshNavCount();
     } else {
       closeHouseDrawer();
@@ -1106,6 +1583,7 @@
 
   // #houses is already in the URL before /board returns. Paint it now — route()
   // after refresh stays in charge of make-ready and every other hash.
+  loadSpan();
   const bootHash = (location.hash || '').replace(/^#/, '').split('/')[0];
   if (bootHash.startsWith('houses') && typeof route === 'function') route();
 })();

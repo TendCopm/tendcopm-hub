@@ -480,6 +480,34 @@ Preview only — do not promote to tendcopm.com. Not Slotify. No production DNS 
 
 ## Mobile agenda — make-ready Schedule (preview 2026-10-28)
 
-Phone month and week on **Schedule** (Apartments / make-ready) render as a time-sorted agenda. Day stays the create12 hour grid. Desktop and wide layouts keep the month/week grids. Houses stays address board, map, and routes — no calendar there.
+Phone month and week on **Schedule** (Apartments / make-ready) render as a time-sorted agenda. Day stays the create12 hour grid. Desktop and wide layouts keep the month/week grids. That agenda stays on make-ready Schedule. House calendars live on the house profile, not on this Schedule view.
 
-Cache: `?v=20261027mobileAgenda`. Service worker `tendco-hub-20261027mobileAgenda`. Preview only — do not promote to tendcopm.com.
+Shipped on main as `?v=20261027mobileAgenda`. The combined preview with Residential uses `?v=20261027residential1` and service worker `tendco-hub-20261027residential1`. Preview only — do not promote to tendcopm.com.
+
+## Residential house profile (preview 2026-10-27 residential1)
+
+Fernando locked the residential brief: a house is the unit, one engineer oversees several homes, and the house profile shows every service and vendor — including contractors on the same day.
+
+### What shipped
+- Address board still groups by neighborhood. Each row names the engineer and, when a house has more than one trade, the service count and date span. Rows in the selected day, week, or month pick up a blue edge. The list is not filtered down to that range.
+- **640 West Harbor Street** (College Park, Oak & Pine, engineer Maya) is the long flip: Nov 2–Nov 18, 14 services. Same-day pairs render side by side, not as one crew: floor stripping + pressure washing (Nov 2), tiles + landscaping (Nov 3), painters + roofers (Nov 4), tree trimming + gutter cleaning (Nov 6), pool services + irrigation (Nov 9). Carpet, floor cleaning, and roof repairs sit on their own days.
+- The house drawer is the profile: curb, engineer, timeline, and a calendar for that house. Day / week / month on that calendar is the same selection the map uses.
+- Map: All leaves every pin as a location. Day, week, or month draws booked houses in amber and dims the rest, skips area clustering so those houses stay visible, and lists them beside the map. The map’s own calendar selects the same range. Opening a pin returns to that house’s profile.
+- A few other homes carry shorter pipelines (812 W Princeton, 640 W Harvard, 1412 Gaston Foster) so a day is not only Harbor and so Gaston shows a second same-day pair. Homes without a service list still show their single job, window, and crew.
+- `?demo=1` stays on the seed. No Worker call for the profile.
+
+### Judgment calls
+- Engineer follows the client company (Maya / Oak & Pine, Dennis / Lakeside, Joe / Horizon, Ana / Cedar), not a new screen. Neighborhood grouping on the board is unchanged.
+- Weeks are Monday–Sunday so a selected week is one row on the calendar. November 2, 2026 is a Monday.
+- “All” is the default. The map tab still shows every location until a day, week, or month is chosen.
+- The address list stays complete when a range is selected. The map highlights; it does not become the only working list.
+- Show on map while a range is selected opens the full book (not one neighborhood) so every house booked that day, week, or month can appear. With no range selected, Show on map still zooms to that house’s area.
+- Single job / crew / window fields are not repeated under the timeline. The timeline is those fields when there is one service, and every trade when there are many.
+- Street View still waits on a Maps key. The curb placeholder and OSM map are unchanged.
+- This rebase keeps create12 (day hour grid, keys, vendor email, color approval) and the phone agenda on make-ready Schedule. Houses does not replace that agenda.
+
+Cache for the combined preview: `?v=20261027residential1`. Service worker `tendco-hub-20261027residential1`. That one cache carries mobile agenda and Residential.
+
+http://localhost:4173/portal/app.html?demo=1&v=20261027residential1#houses
+
+Preview only — do not promote to tendcopm.com. Ready for squash-merge.
