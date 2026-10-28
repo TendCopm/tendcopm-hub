@@ -477,3 +477,9 @@ Dismiss **Add your maintenance team** if it covers the page.
 6. **Still intact** — Pest gate, utilities block on cleaning, eviction order, common areas / Viewing / fire, Tendy unit links, Houses (`#houses`) all still open. Demo never calls the Worker.
 
 Preview only — do not promote to tendcopm.com. Not Slotify. No production DNS change.
+
+## Mobile agenda — make-ready Schedule (preview 2026-10-28)
+
+Phone month and week on **Schedule** (Apartments / make-ready) render as a time-sorted agenda. Day stays the create12 hour grid. Desktop and wide layouts keep the month/week grids. Houses stays address board, map, and routes — no calendar there.
+
+Cache: `?v=20261027mobileAgenda`. Service worker `tendco-hub-20261027mobileAgenda`. Preview only — do not promote to tendcopm.com.

@@ -3650,6 +3650,8 @@ function buildCalItems(){
         staffing: mrwVendorKind(s.vendor),
         in_house: mrwVendorKind(s.vendor) === 'in_house',
         email_state: mrwEmailState(s),
+        needs_color: mrwNeedsColorApproval(s),
+        color_approved: !!s.color_approved,
         priority: urgent ? 'urgent' : null,
         highPriority: urgent,
         urgent,
@@ -3816,22 +3818,52 @@ function itemStartHour(it){
   return h;
 }
 
-function calDayChipHtml(it){
+/** Service name on the shared day/agenda chip. Prefer the service label over the trade when they differ. */
+function chipServiceName(it, tradeTxt){
+  if (!it) return tradeTxt || '';
+  if (it.calendarLock || it.kind === 'lock' || it.kind === 'oncall' || it.oncall) return '';
+  if (it.kind === 'viewing' || it.lane === 'viewing' || it.viewing) return '';
+  if (it.kind === 'common' || it.lane === 'common') return '';
+  const title = String(it.title || '').trim();
+  const who = assigneeOf(it);
+  if (title && title !== who && title !== tradeTxt && !/^(unit|home|suite)\b/i.test(title)) return title;
+  return tradeTxt || '';
+}
+
+function calKeysEarly(it){
+  if (!it || !it.service_id) return false;
+  if (it.calendarLock || it.kind === 'lock' || it.kind === 'oncall' || it.oncall) return false;
+  if (it.time_start && mrwParseHour(it.time_start) != null && mrwParseHour(it.time_start) < 15) return true;
+  if (!it.time_start && (it.preferred_slot === 'morning' || it.preferred_slot === 'afternoon')) return true;
+  return false;
+}
+
+function calColorBadgeHtml(it){
+  if (!it || !it.needs_color) return '';
+  return mrwColorBadgeHtml({ trade: it.trade || 'color_change', label: it.title || 'Color change', color_approved: !!it.color_approved });
+}
+
+/** Shared chip for the day hour grid and the mobile agenda. */
+function calDayChipHtml(it, opts){
+  const o = opts || {};
   const st = calStatusClass(it);
-  const clock = it.time_start ? mrwFmtClock(it.time_start) : '';
+  const clock = (!o.hideClock && it.time_start) ? mrwFmtClock(it.time_start) : '';
   const tradeTxt = (it.calendarLock || it.kind === 'lock' || it.kind === 'oncall' || it.oncall) ? '' : tradeLabel(it.trade);
-  const label = [calChipLabel(it, { long:true }), tradeTxt, clock, calStatusLabel(it)].filter(Boolean).join(' · ');
+  const svcName = chipServiceName(it, tradeTxt);
+  const label = [calChipLabel(it, { long:true }), svcName, clock, calStatusLabel(it)].filter(Boolean).join(' · ');
   const who = assigneeOf(it);
   const unitBit = it.unit_label ? ('unit ' + it.unit_label) : '';
-  const early = !!(it.service_id && it.time_start && mrwParseHour(it.time_start) < 15);
-  const tip = [who || it.title, unitBit, tradeTxt, clock, calStatusLabel(it), early ? MRW_KEYS_COPY : '', it.flexible ? 'Right-click: Move to urgent unit…' : ''].filter(Boolean).join(' · ');
+  const early = calKeysEarly(it);
+  const tip = [who || it.title, unitBit, svcName || tradeTxt, clock || (it.time_start ? mrwFmtClock(it.time_start) : ''), calStatusLabel(it), early ? MRW_KEYS_COPY : '', it.needs_color ? (it.color_approved ? 'Color approved' : 'Awaiting color approval') : '', it.flexible ? 'Right-click: Move to urgent unit…' : ''].filter(Boolean).join(' · ');
   const laneCls = (it.kind === 'viewing' || it.lane === 'viewing' || it.viewing) ? ' lane-vw' : ((it.kind === 'common' || it.lane === 'common') ? ' lane-ca' : ' lane-mr');
   const vwBadge = (it.kind === 'viewing' || it.lane === 'viewing' || it.viewing) ? '<span class="cal-vw-tag">Viewing</span>' : '';
   const flexCls = it.flexible ? ' flex-src' : '';
   const earlyCls = early ? ' keys-early' : '';
   const ih = it.service_id ? mrwInHouseBadgeHtml(it.staffing === 'in_house' ? 'in_house' : (it.staffing === 'outsourced' ? 'outsourced' : '')) : '';
   const email = it.service_id ? mrwEmailBadgeHtml(it.email_state || 'na') : '';
-  return `<button type="button" class="cal-chip ${st}${laneCls}${it.demo ? ' demo' : ''}${it.highPriority || it.urgent ? ' has-pri' : ''}${it.calendarLock ? ' lock' : ''}${it.kind === 'oncall' || it.oncall ? ' oncall' : ''}${flexCls}${earlyCls}" data-cal-id="${esc(it.id)}" title="${esc(tip)}">${priBadgeHtml(it, true)}${vwBadge}<span class="cal-chip-txt">${esc(label)}</span>${ih}${email}</button>`;
+  const keys = early ? `<span class="keys-badge" title="${esc(MRW_KEYS_COPY)}">Before 3 PM</span>` : '';
+  const color = calColorBadgeHtml(it);
+  return `<button type="button" class="cal-chip ${st}${laneCls}${it.demo ? ' demo' : ''}${it.highPriority || it.urgent ? ' has-pri' : ''}${it.calendarLock ? ' lock' : ''}${it.kind === 'oncall' || it.oncall ? ' oncall' : ''}${flexCls}${earlyCls}" data-cal-id="${esc(it.id)}" title="${esc(tip)}">${priBadgeHtml(it, true)}${vwBadge}<span class="cal-chip-txt">${esc(label)}</span>${ih}${email}${color}${keys}</button>`;
 }
 
 function renderDayHourGridHtml(key, d, dayItems){
@@ -4032,6 +4064,99 @@ function openMoveToUrgentMenu(it, clientX, clientY){
   setTimeout(() => document.addEventListener('mousedown', closer), 0);
 }
 
+/** Phone month/week on make-ready Schedule only. Houses has no calendar. */
+const CAL_AGENDA_QUERY = '(max-width: 768px)';
+
+function calUsesAgenda(){
+  try { return window.matchMedia(CAL_AGENDA_QUERY).matches; }
+  catch { return false; }
+}
+
+function scheduleViewOpen(){
+  const view = document.getElementById('view-schedule');
+  return !!(view && !view.classList.contains('hidden'));
+}
+
+function agendaHour(it){
+  if (!it || !it.time_start) return null;
+  return mrwParseHour(it.time_start);
+}
+
+function agendaItemSort(a, b){
+  const al = (a.calendarLock || a.kind === 'lock') ? 0 : 1;
+  const bl = (b.calendarLock || b.kind === 'lock') ? 0 : 1;
+  if (al !== bl) return al - bl;
+  const ha = agendaHour(a);
+  const hb = agendaHour(b);
+  if (ha == null && hb == null) return String(a.title || '').localeCompare(String(b.title || ''));
+  if (ha == null) return 1;
+  if (hb == null) return -1;
+  if (ha !== hb) return ha - hb;
+  return String(a.title || '').localeCompare(String(b.title || ''));
+}
+
+function agendaWhenLabel(it){
+  if (!it) return '';
+  if (it.calendarLock || it.kind === 'lock') return 'All day';
+  if (it.kind === 'oncall' || it.oncall) return 'On call';
+  if (it.time_start) return mrwFmtClock(it.time_start);
+  if (it.time_window) return String(it.time_window);
+  return 'No hour';
+}
+
+function renderAgendaDayHtml(day){
+  const { key, d, dow, inMonth, dayItems, isLocked, isSunOff, isSat, hasOverlap, today, selected, mode } = day;
+  if (mode === 'month' && !inMonth) return '';
+  if (mode === 'month' && !dayItems.length && key !== today && !isLocked) return '';
+  const longDow = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  const n = dayItems.length;
+  const meta = isSunOff ? 'Sunday — off' : (n ? (n + ' scheduled') : 'Nothing scheduled');
+  const cls = [
+    'agenda-day',
+    key === today ? 'today' : '',
+    key === selected ? 'selected' : '',
+    isLocked ? 'locked' : '',
+    isSunOff ? 'sun-off' : '',
+    isSat ? 'sat' : '',
+  ].filter(Boolean).join(' ');
+  const items = isSunOff ? [] : dayItems.slice().sort(agendaItemSort);
+  const rows = items.length
+    ? `<div class="agenda-items">${items.map(it => {
+        const when = agendaWhenLabel(it);
+        const whenCls = calKeysEarly(it) ? ' early' : ((when === 'No hour' || when === 'All day') ? ' muted' : '');
+        return `<div class="agenda-row"><div class="agenda-when${whenCls}">${esc(when)}</div><div class="agenda-chip">${calDayChipHtml(it, { hideClock:true })}</div></div>`;
+      }).join('')}</div>`
+    : (isSunOff ? '' : '<p class="agenda-empty">Nothing scheduled</p>');
+  const oncall = (mode === 'week' && isSat)
+    ? `<div class="agenda-oncall"><button type="button" class="cal-oncall-set" data-oncall-date="${esc(key)}">Set Saturday on-call</button></div>`
+    : '';
+  const lock = isLocked ? '<span class="cal-lock-tag">Busy</span>' : '';
+  const overlap = hasOverlap && !isSunOff ? '<span class="cal-overlap">Overlap</span>' : '';
+  return `<section class="${cls}" data-date="${esc(key)}">
+    <button type="button" class="agenda-day-h" data-date="${esc(key)}" aria-label="${esc(longDow + '. ' + meta + '. Open the hour grid.')}">
+      <span class="agenda-dow">${esc(dow)}</span>
+      <span class="agenda-num">${d.getDate()}</span>
+      <span class="agenda-meta">${esc(meta)}</span>
+      ${lock}${overlap}
+      <span class="agenda-go" aria-hidden="true"><svg class="i" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
+    </button>
+    ${rows}
+    ${oncall}
+  </section>`;
+}
+
+function maybeAnchorAgenda(grid){
+  if (!scheduleViewOpen()) return;
+  if (!state.cal.pendingAgendaScroll && state.cal.agendaDidAnchor) return;
+  state.cal.agendaDidAnchor = true;
+  state.cal.pendingAgendaScroll = false;
+  const anchor = grid.querySelector('.agenda-day.today') || grid.querySelector('.agenda-day.selected');
+  if (!anchor) return;
+  requestAnimationFrame(() => {
+    try { anchor.scrollIntoView({ block:'start', inline:'nearest' }); } catch {}
+  });
+}
+
 function renderCalendar(){
   ensureCalState();
   const grid = document.getElementById('cal-grid');
@@ -4054,9 +4179,13 @@ function renderCalendar(){
   }
 
   let startKey, days;
+  const useAgenda = (mode === 'month' || mode === 'week') && calUsesAgenda();
   if (panel) {
+    panel.classList.toggle('cal-mode-month', mode === 'month');
     panel.classList.toggle('cal-mode-week', mode === 'week');
     panel.classList.toggle('cal-mode-day', mode === 'day');
+    panel.classList.toggle('cal-mode-agenda', useAgenda);
+    panel.dataset.calLayout = useAgenda ? 'agenda' : (mode === 'day' ? 'day' : 'grid');
   }
   if (mode === 'day') {
     startKey = selected || today;
@@ -4144,6 +4273,10 @@ function renderCalendar(){
     const isLocked = dayLocks.length > 0;
     const isSunOff = mode === 'week' && dowNum === 0;
     const isSat = dowNum === 6;
+    if (useAgenda) {
+      html += renderAgendaDayHtml({ key, d, dow, dowNum, inMonth, dayItems, isLocked, isSunOff, isSat, hasOverlap, today, selected, mode });
+      continue;
+    }
     if (mode === 'day') {
       html += renderDayHourGridHtml(key, d, dayItems);
       continue;
@@ -4188,7 +4321,41 @@ function renderCalendar(){
       </div>
     </button>`;
   }
+  if (useAgenda) {
+    const lead = mode === 'week'
+      ? 'Agenda · this week by time. Tap a date for the hour grid.'
+      : 'Agenda · days with work. Quiet days stay tucked. Tap a date for the hour grid.';
+    const body = html || '<div class="cal-empty">Nothing scheduled this month.</div>';
+    html = `<div class="cal-agenda"><p class="agenda-lead">${esc(lead)}</p>${body}</div>`;
+    grid.setAttribute('role', 'list');
+    grid.setAttribute('aria-label', 'Schedule agenda');
+  } else {
+    grid.setAttribute('role', 'grid');
+    grid.setAttribute('aria-label', 'Schedule calendar');
+  }
   grid.innerHTML = html;
+
+  grid.querySelectorAll('.cal-agenda [data-cal-id]').forEach(chip => {
+    chip.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const dateKey = chip.closest('[data-date]')?.dataset.date;
+      const it = (state.cal.items || []).find(x => x.id === chip.dataset.calId)
+        || (String(chip.dataset.calId || '').startsWith('oncall-')
+          ? { id: chip.dataset.calId, kind:'oncall', oncall:true, dateKey,
+              assignee: (state.cal.onCallBySaturday || {})[dateKey] }
+          : null);
+      if (it) openCalItem(it);
+    });
+  });
+  grid.querySelectorAll('.agenda-day-h').forEach(btn => {
+    btn.addEventListener('click', () => selectCalDay(btn.dataset.date, { toDay:true }));
+  });
+  grid.querySelectorAll('.cal-agenda [data-oncall-date]').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      openSetOnCall(btn.dataset.oncallDate);
+    });
+  });
 
   grid.querySelectorAll('.cal-day-board [data-cal-id]').forEach(chip => {
     chip.addEventListener('click', (ev) => {
@@ -4232,6 +4399,7 @@ function renderCalendar(){
     btn.classList.toggle('on', btn.dataset.calMode === mode);
   });
 
+  if (useAgenda) maybeAnchorAgenda(grid);
   renderCalDayPanel();
 }
 
@@ -6168,8 +6336,20 @@ document.getElementById('cal-today')?.addEventListener('click', () => {
   const t = todayKeyNY();
   state.cal.selected = t;
   state.cal.cursor = parseKey(t);
+  state.cal.pendingAgendaScroll = true;
   renderCalendar();
 });
+(function bindCalAgendaResize(){
+  let mq;
+  try { mq = window.matchMedia(CAL_AGENDA_QUERY); } catch { return; }
+  const onChange = () => {
+    if (!scheduleViewOpen()) return;
+    if ((state.cal && state.cal.tab) === 'list') return;
+    try { renderCalendar(); } catch {}
+  };
+  if (mq.addEventListener) mq.addEventListener('change', onChange);
+  else if (mq.addListener) mq.addListener(onChange);
+})();
 document.getElementById('cal-mode-month')?.addEventListener('click', () => {
   ensureCalState();
   state.cal.mode = 'month';
