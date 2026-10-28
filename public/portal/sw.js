@@ -1,5 +1,5 @@
 /* TendCo Hub service worker. Cache name includes the portal version. */
-var CACHE = 'tendco-hub-20261027hash1';
+var CACHE = 'tendco-hub-20261027create12';
 
 var SHELL = [
   '/portal/app.html',

@@ -67,16 +67,11 @@ const DEMO_VENDORS = [
 ];
 
 function cloneDefaultServices(){
-  return DEFAULT_MR_SERVICES.map(s => ({
+  return DEFAULT_MR_SERVICES.map(s => mrwBlankService({
     id: s.id,
     trade: s.trade,
     label: s.label,
     hint: s.hint || '',
-    vendor: '',
-    confirm: '',
-    confirm_via: '',
-    scheduled_date: '',
-    slot_n: 0,
   }));
 }
 
@@ -389,6 +384,8 @@ function expandLaneItems(fromKey, toKey){
         common_type: job.type,
         staffing: job.staffing || '',
         time_window: win,
+        time_start: job.time_start || '',
+        time_end: job.time_end || '',
         demo: !!job.demo,
       });
     }
@@ -1060,20 +1057,305 @@ function mrwIsEviction(w){
 }
 
 function mrwMakeService(spec){
-  return {
+  return mrwBlankService(spec || {});
+}
+
+/* ─── create12 · keys window, preferred slots, in-house, vendor email, color approval ───
+ * No _wip helpers were in the tree. These sit on the create10–11 service model.
+ * create10 AM/PM (day_part) stays the same-day share order. preferred_slot is the clock window.
+ */
+const MRW_SLOTS = [
+  { id:'morning', label:'Morning', hint:'8:00–12:00', start:'08:00', end:'12:00' },
+  { id:'afternoon', label:'Afternoon', hint:'12:00–3:00', start:'12:00', end:'15:00' },
+  { id:'keys', label:'3 PM+', hint:'Keys window', start:'15:00', end:'17:00' },
+];
+const MRW_SLOT_BY_ID = Object.fromEntries(MRW_SLOTS.map(s => [s.id, s]));
+const MRW_KEYS_COPY = 'Keys are available from 3:00 PM onward — not in the morning.';
+const IN_HOUSE_VENDORS = new Set([
+  'tendco', 'tendco (onsite)', 'tendco painting', 'tendco cleaning', 'tendco punch',
+  'in-house', 'joe', 'fred', 'dennis', 'ana', 'maya',
+]);
+
+function mrwBlankService(spec){
+  const s = {
     id: spec.id,
     trade: spec.trade,
     label: spec.label,
     hint: spec.hint || '',
-    vendor: '',
-    confirm: '',
-    confirm_via: '',
-    scheduled_date: '',
-    scheduled_end: '',
-    day_part: '',
-    slot_n: 0,
-    blocked_utils: false,
+    vendor: spec.vendor || '',
+    confirm: spec.confirm || '',
+    confirm_via: spec.confirm_via || '',
+    scheduled_date: spec.scheduled_date || '',
+    scheduled_end: spec.scheduled_end || '',
+    day_part: spec.day_part || '',
+    slot_n: spec.slot_n || 0,
+    blocked_utils: !!spec.blocked_utils,
+    preferred_slot: spec.preferred_slot || '',
+    time_start: spec.time_start || '',
+    time_end: spec.time_end || '',
+    color_approved: !!spec.color_approved,
+    color_approved_by: spec.color_approved_by || '',
+    color_approved_at: spec.color_approved_at || '',
+    email_status: spec.email_status || '',
+    email_sent_at: spec.email_sent_at || '',
+    email_viewed_at: spec.email_viewed_at || '',
   };
+  return s;
+}
+
+function mrwSlotById(id){
+  return MRW_SLOT_BY_ID[id] || null;
+}
+
+function mrwParseHour(hhmm){
+  const m = String(hhmm || '').match(/^(\d{1,2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  return Number.isFinite(h) ? h : null;
+}
+
+function mrwFmtClock(hhmm){
+  const h = mrwParseHour(hhmm);
+  if (h == null) return '';
+  const mm = (String(hhmm).match(/:(\d{2})/) || [, '00'])[1];
+  const ap = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return h12 + ':' + mm + ' ' + ap;
+}
+
+function mrwSlotFromHour(h){
+  const n = Number(h);
+  if (!Number.isFinite(n)) return '';
+  if (n < 12) return 'morning';
+  if (n < 15) return 'afternoon';
+  return 'keys';
+}
+
+function mrwApplySlot(s, slotId){
+  const slot = mrwSlotById(slotId);
+  if (!s || !slot) return;
+  s.preferred_slot = slot.id;
+  s.time_start = slot.start;
+  s.time_end = slot.end;
+}
+
+function mrwApplyHour(s, hour){
+  const h = Number(hour);
+  if (!s || !Number.isFinite(h)) return;
+  const hh = String(h).padStart(2, '0');
+  const endH = Math.min(h + 2, 18);
+  s.time_start = hh + ':00';
+  s.time_end = String(endH).padStart(2, '0') + ':00';
+  s.preferred_slot = mrwSlotFromHour(h);
+}
+
+function mrwSlotLabel(s){
+  const slot = mrwSlotById(s?.preferred_slot);
+  const clock = s?.time_start ? mrwFmtClock(s.time_start) : '';
+  if (slot && clock) return slot.label + ' · ' + clock;
+  if (slot) return slot.label + ' · ' + slot.hint;
+  if (clock) return clock;
+  return '';
+}
+
+function mrwNeedsUnitAccess(s){
+  if (!s) return false;
+  const k = mrwKind(s);
+  return k !== 'viewing';
+}
+
+/** New make-ready services land in the keys window until a supervisor picks another. */
+function mrwEnsureAccessSlot(s){
+  if (!s || s.preferred_slot || s.time_start) return s;
+  if (mrwNeedsUnitAccess(s)) mrwApplySlot(s, 'keys');
+  return s;
+}
+
+function mrwKeysEarly(s){
+  if (!s || !mrwNeedsUnitAccess(s)) return false;
+  const h = mrwParseHour(s.time_start);
+  if (h == null) return s.preferred_slot === 'morning' || s.preferred_slot === 'afternoon';
+  return h < 15;
+}
+
+function mrwKeysNoteHtml(opts){
+  const warn = !!(opts && opts.warn);
+  const title = warn ? 'Before 3:00 PM — keys are not out' : 'Keys from 3:00 PM';
+  const body = warn
+    ? 'This window is before 3:00 PM. ' + MRW_KEYS_COPY
+    : MRW_KEYS_COPY + ' Place unit access in the 3 PM+ window.';
+  return `<div class="keys-note${warn ? ' warn' : ''}" role="note"><b>${esc(title)}</b><span>${esc(body)}</span></div>`;
+}
+
+function mrwVendorKind(name){
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return '';
+  if (IN_HOUSE_VENDORS.has(n) || n.startsWith('tendco')) return 'in_house';
+  return 'outsourced';
+}
+
+function mrwInHouseBadgeHtml(vendor){
+  const k = vendor === 'in_house' || vendor === 'outsourced' ? vendor : mrwVendorKind(vendor);
+  if (k === 'in_house') return '<span class="ih-badge" title="TendCo or onsite staff">In-house</span>';
+  if (k === 'outsourced') return '<span class="ih-badge vendor" title="Outside vendor">Vendor</span>';
+  return '';
+}
+
+function mrwNeedsColorApproval(s){
+  return mrwKind(s) === 'color_change';
+}
+
+function mrwColorApproved(s){
+  return !mrwNeedsColorApproval(s) || !!(s && s.color_approved);
+}
+
+function mrwColorBadgeHtml(s){
+  if (!mrwNeedsColorApproval(s)) return '';
+  if (s.color_approved) return '<span class="color-badge ok">Color approved</span>';
+  return '<span class="color-badge wait">Awaiting color approval</span>';
+}
+
+function mrwApproveColor(s, by){
+  if (!s || !mrwNeedsColorApproval(s)) return false;
+  s.color_approved = true;
+  s.color_approved_by = by || 'Supervisor';
+  s.color_approved_at = new Date().toISOString();
+  return true;
+}
+
+function mrwEmailState(s){
+  if (!s || mrwVendorKind(s.vendor) !== 'outsourced') return 'na';
+  if (s.email_viewed_at || s.email_status === 'viewed') return 'viewed';
+  if (s.email_sent_at || s.email_status === 'sent') return 'sent';
+  return 'unsent';
+}
+
+function mrwEmailBadgeHtml(s){
+  const st = typeof s === 'string' ? s : mrwEmailState(s);
+  if (st === 'viewed') return '<span class="email-badge viewed">Email viewed</span>';
+  if (st === 'sent') return '<span class="email-badge sent">Email sent · not viewed</span>';
+  if (st === 'unsent') return '<span class="email-badge unsent">Email not sent</span>';
+  return '';
+}
+
+function mrwHandoffCopy(s, unitLabel){
+  const when = s?.scheduled_date ? fmtDate(s.scheduled_date) : 'the scheduled day';
+  const slot = mrwSlotLabel(s) || '3:00 PM onward';
+  const unit = unitLabel ? ('Unit ' + unitLabel) : 'This unit';
+  const svc = s?.label || tradeLabel(s?.trade) || 'service';
+  return unit + ': ' + svc + ' on ' + when + ' · ' + slot + '. Keys are at the office from 3:00 PM onward. Please do not arrive in the morning.';
+}
+
+function mrwMarkEmailSent(s){
+  if (!s) return;
+  s.email_sent_at = new Date().toISOString();
+  s.email_viewed_at = '';
+  s.email_status = 'sent';
+  if (s.vendor && s.confirm !== 'confirmed') s.confirm = 'pending';
+}
+
+function mrwMarkEmailViewed(s){
+  if (!s) return false;
+  if (mrwEmailState(s) === 'unsent' || mrwEmailState(s) === 'na') return false;
+  s.email_viewed_at = new Date().toISOString();
+  s.email_status = 'viewed';
+  return true;
+}
+
+/** Swap the company on a service. Date, time, and the service row stay. */
+function mrwReplaceVendor(s, nextVendor){
+  if (!s) return '';
+  const prev = s.vendor || '';
+  const next = nextVendor || '';
+  if (next === prev) return prev;
+  s.vendor = next;
+  s.confirm = next ? 'pending' : '';
+  s.confirm_via = '';
+  s.email_sent_at = '';
+  s.email_viewed_at = '';
+  s.email_status = '';
+  return prev;
+}
+
+function mrwSvcStatus(s){
+  const colorWait = mrwNeedsColorApproval(s) && !s.color_approved;
+  if (s?.paused_pest) return { key:'paused', label:'Paused — pest' };
+  if (s?.blocked_utils) return { key:'blocked', label:'Blocked — utilities' };
+  if (colorWait) return { key:'colorwait', label:'Awaiting color approval' };
+  if (s?.confirm === 'confirmed') return { key:'confirmed', label:'Scheduled' };
+  if (s?.vendor) return { key:'pending', label:'Pending confirm' };
+  return { key:'open', label:'No vendor' };
+}
+
+function mrwConfirmBlockReason(s, host){
+  if (!s) return 'Service missing';
+  if (!s.vendor) return 'Pick a vendor first';
+  if (s.paused_pest || (host && mrwPestGateActive(host) && mrwKind(s) !== 'pest')) {
+    const when = host ? fmtDate(host.pest_resume_date || mrwPestResumeDate(host)) : '';
+    return 'Pest-blocked — other services paused' + (when ? ' until ' + when : '');
+  }
+  if (s.blocked_utils || (host && mrwNeedsUtilities(s) && !mrwUtilitiesOk(host?.utilities))) {
+    return 'Cleaning blocked — confirm water and electric';
+  }
+  if (!mrwColorApproved(s)) return 'Approve the color change before confirming or scheduling';
+  return '';
+}
+
+function mrwSlotPickerHtml(s, actAttr){
+  const act = actAttr || 'data-act';
+  const hour = mrwParseHour(s?.time_start);
+  const slots = MRW_SLOTS.map(sl =>
+    `<button type="button" class="slot-btn${s?.preferred_slot === sl.id ? ' on' : ''}" ${act}="slot" data-slot="${sl.id}"><b>${esc(sl.label)}</b><small>${esc(sl.hint)}</small></button>`
+  ).join('');
+  const hours = [];
+  for (let h = 8; h <= 17; h++) {
+    const on = hour === h ? ' on' : '';
+    const keys = h >= 15 ? ' keys' : '';
+    const h12 = h % 12 || 12;
+    const ap = h < 12 ? 'a' : 'p';
+    hours.push(`<button type="button" class="hour-btn${on}${keys}" ${act}="hour" data-hour="${h}" aria-label="${h12}:00 ${h < 12 ? 'AM' : 'PM'}">${h12}${ap}</button>`);
+  }
+  const warn = mrwKeysEarly(s) ? mrwKeysNoteHtml({ warn:true }) : '';
+  return `<div class="slot-block">
+    <div class="slot-k">Preferred window</div>
+    <div class="slot-pick" role="group" aria-label="Preferred window">${slots}</div>
+    <div class="hour-pick" role="group" aria-label="Start hour">${hours.join('')}</div>
+    ${warn}
+  </div>`;
+}
+
+function mrwColorApproveHtml(s, actAttr){
+  if (!mrwNeedsColorApproval(s)) return '';
+  const act = actAttr || 'data-act';
+  if (s.color_approved) {
+    const who = s.color_approved_by ? (' · ' + s.color_approved_by) : '';
+    return `<div class="color-approve">${mrwColorBadgeHtml(s)}<span class="color-by">Approved${esc(who)}</span></div>`;
+  }
+  return `<div class="color-approve">
+    ${mrwColorBadgeHtml(s)}
+    <button type="button" class="btn pri sm" ${act}="approve-color">Approve color change</button>
+    <p class="d-hint">Stays pending until a PM or supervisor approves. Approval unlocks confirm and schedule.</p>
+  </div>`;
+}
+
+function mrwEmailHandoffHtml(s, unitLabel, actAttr){
+  const act = actAttr || 'data-act';
+  const kind = mrwVendorKind(s?.vendor);
+  if (kind === 'in_house') {
+    return `<p class="handoff-onsite">${mrwInHouseBadgeHtml('in_house')} Onsite crew — no outside vendor email.</p>`;
+  }
+  if (kind !== 'outsourced') return '';
+  const st = mrwEmailState(s);
+  const sendLabel = st === 'unsent' ? 'Send request email' : 'Resend request email';
+  const viewDis = st === 'unsent' ? 'disabled' : '';
+  return `<div class="email-handoff">
+    <div class="email-handoff-h"><span>Vendor email</span>${mrwEmailBadgeHtml(s)}</div>
+    <p class="handoff-copy">${esc(mrwHandoffCopy(s, unitLabel))}</p>
+    <div class="email-actions">
+      <button type="button" class="btn sec sm" ${act}="email-send">${esc(sendLabel)}</button>
+      <button type="button" class="btn ghost sm" ${act}="email-view" ${viewDis}>Mark viewed (demo)</button>
+    </div>
+  </div>`;
 }
 
 /** Seed eviction head services: Change of lock → Trash out → Full inspection. */
@@ -1401,6 +1683,8 @@ function mrwChipLabel(s){
   let name = mrwSvcShort(s);
   if (s.day_part === 'AM') name += ' (AM)';
   if (s.day_part === 'PM') name += ' (PM)';
+  const slot = mrwSlotById(s?.preferred_slot);
+  if (slot) name += ' · ' + slot.label;
   return name;
 }
 
@@ -1414,8 +1698,9 @@ function mrwPipelineStripHtml(w){
     if (s.scheduled_end && s.scheduled_end !== s.scheduled_date) {
       date = fmtDate(s.scheduled_date) + '–' + fmtDate(s.scheduled_end);
     }
-    const blocked = s.blocked_utils ? ' blocked' : (s.paused_pest ? ' paused' : '');
-    const pauseBit = s.paused_pest ? ' (paused)' : '';
+    const colorWait = mrwNeedsColorApproval(s) && !s.color_approved;
+    const blocked = s.blocked_utils ? ' blocked' : (s.paused_pest ? ' paused' : (colorWait ? ' colorwait' : ''));
+    const pauseBit = s.paused_pest ? ' (paused)' : (colorWait ? ' (awaiting color approval)' : '');
     return `<span class="mrw-pipe-chip${blocked}" title="${esc(s.label || '')} · ${esc(date)}${pauseBit}"><b>${n}</b> ${esc(mrwChipLabel(s))} · ${esc(date)}${pauseBit}</span>`;
   }).join('');
   return `<div class="mrw-pipe-strip" aria-label="Service pipeline order">${chips}</div>`;
@@ -1943,9 +2228,11 @@ function renderMakeReadyGrid(t){
   const svcHtml2 = services.length ? `<div class="mr-trades"><span class="k">Service pipeline</span>
     <div class="svc-pipe-mini">${draftLike.services.map(s => {
       const blocked = !!(s.blocked_utils || (mrwNeedsUtilities(s) && !mrwUtilitiesOk(utils)));
-      const cls = s.paused_pest ? 'paused' : (blocked ? 'blocked' : (s.confirm === 'confirmed' ? 'ok' : (s.vendor ? 'wait' : '')));
+      const colorWait = mrwNeedsColorApproval(s) && !s.color_approved;
+      const cls = s.paused_pest ? 'paused' : (blocked ? 'blocked' : (colorWait ? 'colorwait' : (s.confirm === 'confirmed' ? 'ok' : (s.vendor ? 'wait' : ''))));
       const bit = s.paused_pest ? ' · Paused — pest' : (s.vendor ? ' · ' + s.vendor : '');
-      return `<button type="button" class="svc-pipe-btn ${cls}" data-svc-id="${esc(s.id)}" title="Open ${esc(s.label)} schedule / detail">${esc(s.label)}${esc(bit)}</button>`;
+      const slot = mrwSlotLabel(s);
+      return `<button type="button" class="svc-pipe-btn ${cls}" data-svc-id="${esc(s.id)}" title="Open ${esc(s.label)} schedule / detail">${esc(s.label)}${esc(bit)}${slot ? ' · ' + esc(slot) : ''}${mrwInHouseBadgeHtml(s.vendor)}${mrwColorBadgeHtml(s)}${mrwEmailBadgeHtml(s)}</button>`;
     }).join('')}</div></div>` : '';
   // Trade chips: clickable → matching service detail
   const chipsClick = trades.length
@@ -2122,7 +2409,50 @@ function renderVacantOffer(t){
 
 
 
+function buildCreate12DemoServices(row){
+  const mo = row.move_out_date || '2026-10-27';
+  const base = (spec) => mrwBlankService({ scheduled_date: mo, ...spec });
+  return [
+    base({
+      id: 'inspection', trade: 'maintenance', label: 'Move-out inspection',
+      vendor: 'Joe', confirm: 'confirmed', confirm_via: 'call',
+      preferred_slot: 'keys', time_start: '15:00', time_end: '17:00',
+      hint: 'In-house · keys window',
+    }),
+    base({
+      id: 'color_change', trade: 'color_change', label: 'Color change',
+      vendor: 'TendCo Painting', confirm: '', confirm_via: '',
+      color_approved: false,
+      preferred_slot: 'keys', time_start: '15:00', time_end: '17:00',
+      hint: 'Needs PM / supervisor approval before it can be scheduled',
+    }),
+    base({
+      id: 'carpet', trade: 'carpet_cleaning', label: 'Carpet cleaning',
+      vendor: 'Sunshine Carpet Cleaning', confirm: 'pending', confirm_via: '',
+      preferred_slot: 'morning', time_start: '08:00', time_end: '10:00',
+      email_status: 'sent', email_sent_at: '2026-10-27T14:05:00-04:00',
+      hint: 'Outside vendor · request email sent, not viewed yet',
+    }),
+    base({
+      id: 'electrical-c118', trade: 'electrical', label: 'Electrical',
+      vendor: 'Coastal Electric', confirm: 'pending', confirm_via: '',
+      preferred_slot: 'afternoon', time_start: '13:00', time_end: '15:00',
+      email_status: 'viewed',
+      email_sent_at: '2026-10-26T16:10:00-04:00',
+      email_viewed_at: '2026-10-27T09:40:00-04:00',
+      hint: 'Outside vendor · email viewed',
+    }),
+    base({
+      id: 'cleaning', trade: 'cleaning', label: 'Cleaning',
+      vendor: 'TendCo Cleaning', confirm: 'pending', confirm_via: '',
+      preferred_slot: 'keys', time_start: '15:00', time_end: '17:00',
+      hint: 'In-house final clean',
+    }),
+  ];
+}
+
 function buildDemoServicesForRow(row){
+  if (row.services_preset === 'create12_demo') return buildCreate12DemoServices(row);
   const list = cloneDefaultServices();
   // Carpet-before-paint demo: put carpet ahead of painting
   if (row.carpet_before_paint) {
@@ -2267,6 +2597,7 @@ function ensureDemoWhiteboardRows(){
   const existing = new Set((state.turns || []).map(t => String(t.unit_label || '').toUpperCase()));
   const roster = [
     { unit_label:'G-349', address:'Oakridge Bldg G', city:'Winter Park', bedrooms:2, move_out_date:'2026-10-27', move_in_date:'', paint:'', repair_replace:'Carpet clean', housekeeping:'', change_lock:'', inspected_at:'', status:'scheduled', owner_name:'Sunshine Carpet Cleaning', trade:'carpet_cleaning', notice_at:'2026-10-20', flexible:true, services_preset:'carpet_flex_demo', vendor_demo:'Sunshine Carpet Cleaning' },
+    { unit_label:'C-118', address:'Oakridge Bldg C', city:'Winter Park', bedrooms:2, move_out_date:'2026-10-27', move_in_date:'2026-11-06', paint:'', repair_replace:'', housekeeping:'', change_lock:'', inspected_at:'', status:'scheduled', owner_name:'TendCo Painting', trade:'color_change', notice_at:'2026-10-26', services_preset:'create12_demo', urgent:true },
     { unit_label:'F-356', address:'Oakridge Bldg F', city:'Winter Park', bedrooms:2, move_out_date:'2026-10-12', move_in_date:'2026-10-25', paint:'full', repair_replace:'Carpet clean', housekeeping:'2026-10-08', change_lock:'349', inspected_at:'2026-10-24', status:'complete', owner_name:'Fred', trade:'carpet_cleaning', rented:'yes', handoff_at:'2026-10-24T14:00:00-04:00', completed_at:'2026-10-24T13:20:00-04:00' },
     { unit_label:'2-170', address:'Oakridge Bldg 2', city:'Winter Park', bedrooms:1, move_out_date:'2026-10-06', move_in_date:'2026-10-20', paint:'full', repair_replace:'Carpet clean', housekeeping:'2026-10-09', change_lock:'467', inspected_at:'', status:'punch', owner_name:'Dennis', trade:'carpet_cleaning' },
     { unit_label:'A-111', address:'Oakridge Bldg A', city:'Winter Park', bedrooms:1, move_out_date:'2026-10-08', move_in_date:'2026-10-22', paint:'full', repair_replace:'Carpet clean', housekeeping:'2026-10-12', change_lock:'135', inspected_at:'', status:'in_progress', owner_name:'Dennis', trade:'painting' },
@@ -3288,6 +3619,8 @@ function buildCalItems(){
     });
     for (const s of services) {
       if (!s.vendor && s.confirm !== 'confirmed') continue;
+      // Color change stays off the active calendar until a PM/supervisor approves it.
+      if (mrwNeedsColorApproval(s) && !s.color_approved) continue;
       const paused = !!s.paused_pest || (pestGate && mrwKind(s) !== 'pest');
       // Exclude paused (non-pest) from active calendar placement
       if (paused) continue;
@@ -3311,6 +3644,12 @@ function buildCalItems(){
         vendor_name: s.vendor,
         owner_name: s.vendor,
         demo: !!t.demo,
+        time_start: s.time_start || '',
+        time_end: s.time_end || '',
+        preferred_slot: s.preferred_slot || '',
+        staffing: mrwVendorKind(s.vendor),
+        in_house: mrwVendorKind(s.vendor) === 'in_house',
+        email_state: mrwEmailState(s),
         priority: urgent ? 'urgent' : null,
         highPriority: urgent,
         urgent,
@@ -3469,6 +3808,73 @@ function selectCalDay(key, opts){
   });
 }
 
+function itemStartHour(it){
+  if (!it || !it.time_start) return null;
+  const h = mrwParseHour(it.time_start);
+  if (h == null) return null;
+  if (h < 7 || h > 17) return null;
+  return h;
+}
+
+function calDayChipHtml(it){
+  const st = calStatusClass(it);
+  const clock = it.time_start ? mrwFmtClock(it.time_start) : '';
+  const tradeTxt = (it.calendarLock || it.kind === 'lock' || it.kind === 'oncall' || it.oncall) ? '' : tradeLabel(it.trade);
+  const label = [calChipLabel(it, { long:true }), tradeTxt, clock, calStatusLabel(it)].filter(Boolean).join(' · ');
+  const who = assigneeOf(it);
+  const unitBit = it.unit_label ? ('unit ' + it.unit_label) : '';
+  const early = !!(it.service_id && it.time_start && mrwParseHour(it.time_start) < 15);
+  const tip = [who || it.title, unitBit, tradeTxt, clock, calStatusLabel(it), early ? MRW_KEYS_COPY : '', it.flexible ? 'Right-click: Move to urgent unit…' : ''].filter(Boolean).join(' · ');
+  const laneCls = (it.kind === 'viewing' || it.lane === 'viewing' || it.viewing) ? ' lane-vw' : ((it.kind === 'common' || it.lane === 'common') ? ' lane-ca' : ' lane-mr');
+  const vwBadge = (it.kind === 'viewing' || it.lane === 'viewing' || it.viewing) ? '<span class="cal-vw-tag">Viewing</span>' : '';
+  const flexCls = it.flexible ? ' flex-src' : '';
+  const earlyCls = early ? ' keys-early' : '';
+  const ih = it.service_id ? mrwInHouseBadgeHtml(it.staffing === 'in_house' ? 'in_house' : (it.staffing === 'outsourced' ? 'outsourced' : '')) : '';
+  const email = it.service_id ? mrwEmailBadgeHtml(it.email_state || 'na') : '';
+  return `<button type="button" class="cal-chip ${st}${laneCls}${it.demo ? ' demo' : ''}${it.highPriority || it.urgent ? ' has-pri' : ''}${it.calendarLock ? ' lock' : ''}${it.kind === 'oncall' || it.oncall ? ' oncall' : ''}${flexCls}${earlyCls}" data-cal-id="${esc(it.id)}" title="${esc(tip)}">${priBadgeHtml(it, true)}${vwBadge}<span class="cal-chip-txt">${esc(label)}</span>${ih}${email}</button>`;
+}
+
+function renderDayHourGridHtml(key, d, dayItems){
+  const dow = d.toLocaleDateString('en-US', { weekday:'long' });
+  const unslotted = [];
+  const byHour = {};
+  for (const it of dayItems || []) {
+    const h = itemStartHour(it);
+    if (h == null) unslotted.push(it);
+    else (byHour[h] || (byHour[h] = [])).push(it);
+  }
+  const rows = [];
+  for (let h = 7; h <= 17; h++) {
+    const band = h < 12 ? 'morning' : (h < 15 ? 'afternoon' : 'keys');
+    const items = byHour[h] || [];
+    const label = mrwFmtClock(String(h).padStart(2, '0') + ':00');
+    rows.push(`<div class="hour-row band-${band}${h === 15 ? ' keys-start' : ''}" data-hour="${h}">
+      <div class="hour-lab">${esc(label)}</div>
+      <div class="hour-slots">
+        ${h === 15 ? '<div class="hour-keys-mark">Keys from 3:00 PM</div>' : ''}
+        ${items.length ? items.map(calDayChipHtml).join('') : '<span class="hour-empty"></span>'}
+      </div>
+    </div>`);
+  }
+  const uns = unslotted.length
+    ? `<div class="hour-unslot"><div class="hour-unslot-h">No hour yet</div><div class="chips">${unslotted.map(calDayChipHtml).join('')}</div></div>`
+    : '';
+  const locked = (dayItems || []).some(x => x.calendarLock || x.kind === 'lock');
+  return `<div class="cal-day-board" data-date="${esc(key)}">
+    <div class="cal-day-board-h">
+      <div class="num"><span>${d.getDate()}</span><span class="dow-m">${esc(dow)}</span>${locked ? '<span class="cal-lock-tag">Busy</span>' : ''}</div>
+      <div class="slot-legend" aria-hidden="true">
+        <span class="lg morning">Morning</span>
+        <span class="lg afternoon">Afternoon</span>
+        <span class="lg keys">3 PM+ keys</span>
+      </div>
+    </div>
+    ${mrwKeysNoteHtml()}
+    ${uns}
+    <div class="hour-grid" role="grid" aria-label="Day hour grid">${rows.join('')}</div>
+  </div>`;
+}
+
 function renderCalDayPanel(){
   const L = lex();
   const key = state.cal.selected || todayKeyNY();
@@ -3503,13 +3909,16 @@ function renderCalDayPanel(){
       ? (tradeLabel(it.trade) || it.title || 'Busy')
       : (isOncall ? calChipLabel(it, { long:true }) : calChipLabel(it, { long:true }));
     const tradeTxt = (isLock || isOncall) ? '' : tradeLabel(it.trade);
-    const subBits = [who ? it.title : '', tradeTxt && (!it.title || !String(it.title).includes(tradeTxt)) ? tradeTxt : '', it.subtitle || ''].filter(Boolean).join(' · ');
+    const clock = it.time_start ? mrwFmtClock(it.time_start) : '';
+    const subBits = [who ? it.title : '', tradeTxt && (!it.title || !String(it.title).includes(tradeTxt)) ? tradeTxt : '', clock, it.subtitle || ''].filter(Boolean).join(' · ');
     const chip = tradeTxt ? `<span class="trade-chip sm">${esc(UNIT_TRADE_BY_ID[normalizeTradeId(it.trade)]?.short || tradeTxt)}</span>` : '';
+    const ih = it.service_id ? mrwInHouseBadgeHtml(it.staffing === 'in_house' ? 'in_house' : (it.staffing === 'outsourced' ? 'outsourced' : '')) : '';
+    const email = it.service_id ? mrwEmailBadgeHtml(it.email_state || 'na') : '';
     return `
     <button type="button" class="cal-item ${st}" data-cal-id="${esc(it.id)}">
-      <div class="when">${esc(it.dateKey.slice(5).replace('-','/'))}${it.demo ? '<small>Sample</small>' : (statusLabel ? '<small>' + esc(statusLabel) + '</small>' : '')}</div>
+      <div class="when">${esc(clock || it.dateKey.slice(5).replace('-','/'))}${it.demo ? '<small>Sample</small>' : (statusLabel ? '<small>' + esc(statusLabel) + '</small>' : '')}</div>
       <div class="what">
-        <b>${esc(head)}${priBadgeHtml(it, false)}</b>
+        <b>${esc(head)}${priBadgeHtml(it, false)}${ih}${email}</b>
         <span>${esc(subBits)}</span>
         ${chip}
       </div>
@@ -3735,11 +4144,8 @@ function renderCalendar(){
     const isLocked = dayLocks.length > 0;
     const isSunOff = mode === 'week' && dowNum === 0;
     const isSat = dowNum === 6;
-    if (mode === 'day' && !dayItems.length) {
-      html += `<div class="cal-cell today selected has-items" data-date="${key}" role="gridcell">
-        <div class="num"><span>${d.getDate()}</span><span class="dow-m">${dow}</span></div>
-        <div class="cal-day-empty">Nothing on this day yet.<br><span style="color:var(--faint)">Open a turn or confirm a vendor.</span></div>
-      </div>`;
+    if (mode === 'day') {
+      html += renderDayHourGridHtml(key, d, dayItems);
       continue;
     }
     if (isSunOff) {
@@ -3783,6 +4189,14 @@ function renderCalendar(){
     </button>`;
   }
   grid.innerHTML = html;
+
+  grid.querySelectorAll('.cal-day-board [data-cal-id]').forEach(chip => {
+    chip.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const it = (state.cal.items || []).find(x => x.id === chip.dataset.calId);
+      if (it) openCalItem(it);
+    });
+  });
 
   grid.querySelectorAll('.cal-cell').forEach(cell => {
     cell.addEventListener('click', (ev) => {
@@ -4046,50 +4460,54 @@ function renderTurnSvcPanel(t, serviceId){
   }
   const blocked = !!(svc.blocked_utils || (mrwNeedsUtilities(svc) && !mrwUtilitiesOk(t.utilities || {})));
   const paused = !!svc.paused_pest || (mrwPestGateActive(t) && mrwKind(svc) !== 'pest');
-  const st = paused ? 'paused' : (blocked ? 'blocked' : (svc.confirm === 'confirmed' ? 'confirmed' : (svc.vendor ? 'pending' : 'open')));
-  const stLabel = paused ? 'Paused — pest' : (blocked ? 'Blocked — utilities' : (st === 'confirmed' ? 'Scheduled' : (st === 'pending' ? 'Pending confirm' : 'Open — pick vendor')));
+  const status = mrwSvcStatus({ ...svc, paused_pest: paused, blocked_utils: blocked });
+  const st = status.key;
+  const stLabel = paused ? 'Paused — pest' : (blocked ? 'Blocked — utilities' : (st === 'open' ? 'Open — pick vendor' : status.label));
   const vendorOpts = DEMO_VENDORS.map(v =>
     `<option value="${esc(v.id)}" ${svc.vendor===v.id?'selected':''}>${esc(v.label)}</option>`
   ).join('');
-  // Ensure current vendor is in the list
-  if (svc.vendor && !DEMO_VENDORS.some(v => v.id === svc.vendor)) {
-    // prepend as selected option already handled by value match — add synthetic
-  }
   const extraVendor = (svc.vendor && !DEMO_VENDORS.some(v => v.id === svc.vendor))
     ? `<option value="${esc(svc.vendor)}" selected>${esc(svc.vendor)}</option>` : '';
-  const when = svc.scheduled_date ? fmtDate(svc.scheduled_date) : '—';
-  const confirmDis = (!svc.vendor || blocked || paused) ? 'disabled' : '';
-  const scheduleLabel = svc.confirm === 'confirmed'
+  const blockReason = mrwConfirmBlockReason({ ...svc, paused_pest: paused, blocked_utils: blocked }, t);
+  const confirmDis = blockReason ? 'disabled' : '';
+  const scheduleLabel = svc.confirm === 'confirmed' && mrwColorApproved(svc)
     ? ('Scheduled' + (svc.vendor ? ' · ' + svc.vendor : ''))
     : ('Schedule' + (svc.vendor ? ' ' + svc.vendor : '') + ' · ' + (svc.label || tradeLabel(svc.trade) || 'service'));
+  const slotBit = mrwSlotLabel(svc);
   host.hidden = false;
   host.innerHTML = `
     <div class="d-svc-card" data-svc-id="${esc(svc.id)}">
       <div class="d-svc-h">
         <div>
-          <div class="d-svc-title">${esc(svc.label || tradeLabel(svc.trade) || 'Service')}</div>
-          <div class="d-svc-sub">${esc(tradeLabel(svc.trade) || '')}${svc.hint ? ' · ' + esc(svc.hint) : ''}</div>
+          <div class="d-svc-title">${esc(svc.label || tradeLabel(svc.trade) || 'Service')} ${mrwInHouseBadgeHtml(svc.vendor)}</div>
+          <div class="d-svc-sub">${esc(tradeLabel(svc.trade) || '')}${svc.hint ? ' · ' + esc(svc.hint) : ''}${slotBit ? ' · ' + esc(slotBit) : ''}</div>
         </div>
         <span class="svc-status ${st}">${esc(stLabel)}</span>
       </div>
+      <div class="d-svc-badges">${mrwColorBadgeHtml(svc)}${mrwEmailBadgeHtml(svc)}</div>
+      ${mrwNeedsUnitAccess(svc) ? mrwKeysNoteHtml() : ''}
+      ${mrwColorApproveHtml(svc, 'data-svc-act')}
       <div class="d-svc-row">
-        <label>Vendor / tech</label>
-        <select data-svc-act="vendor" aria-label="Vendor">${extraVendor}${vendorOpts}</select>
+        <label>${svc.vendor ? 'Replace vendor' : 'Vendor / tech'}</label>
+        <select data-svc-act="vendor" aria-label="${svc.vendor ? 'Replace vendor' : 'Vendor'}">${extraVendor}${vendorOpts}</select>
+        <p class="d-hint">Pick another TendCo trade or property vendor. The service, date, and time stay. Confirmation and the email handoff reset.</p>
       </div>
       <div class="d-svc-row">
         <label>Date</label>
         <input type="date" data-svc-act="date" value="${esc(svc.scheduled_date || t.move_out_date || todayKeyNY())}">
       </div>
+      ${mrwSlotPickerHtml(svc, 'data-svc-act')}
+      ${mrwEmailHandoffHtml(svc, t.unit_label, 'data-svc-act')}
       <div class="d-svc-confirm">
         <button type="button" data-via="link" class="${svc.confirm_via==='link'?'on':''}" ${confirmDis}>Link</button>
         <button type="button" data-via="text" class="${svc.confirm_via==='text'?'on':''}" ${confirmDis}>Text</button>
         <button type="button" data-via="call" class="${svc.confirm_via==='call'?'on':''}" ${confirmDis}>Call</button>
       </div>
       <div class="d-svc-actions">
-        <button type="button" class="btn pri sm" data-svc-act="schedule">${esc(scheduleLabel)}</button>
+        <button type="button" class="btn pri sm" data-svc-act="schedule" ${confirmDis}>${esc(scheduleLabel)}</button>
         <button type="button" class="btn ghost sm" data-svc-act="close">Close</button>
       </div>
-      <p class="d-hint" style="margin:8px 0 0">Same confirm path as Create — confirmed lands on the calendar; unconfirmed stays pending.</p>
+      <p class="d-hint" style="margin:8px 0 0">Confirmed work lands on the day hour grid. Unconfirmed stays pending. ${esc(MRW_KEYS_COPY)}</p>
     </div>`;
 
   const turn = (state.turns || []).find(x => x.id === t.id) || t;
@@ -4102,24 +4520,67 @@ function renderTurnSvcPanel(t, serviceId){
     turn.services = svcs;
   };
 
-  host.querySelector('[data-svc-act="vendor"]')?.addEventListener('change', (e) => {
-    svc.vendor = e.target.value;
-    if (!svc.vendor) { svc.confirm = ''; svc.confirm_via = ''; }
-    else if (svc.confirm !== 'confirmed') svc.confirm = 'pending';
+  const paintSvc = () => {
     syncSvc();
+    persistTurnServices(turn);
+    try { renderCalendar(); } catch {}
+    try { renderMakeReadyBoard(); } catch {}
+    try { renderBoard(); } catch {}
     renderTurnSvcPanel(turn, svc.id);
     renderMakeReadyGrid(turn);
     renderDemoUnitSchedule(turn);
+  };
+  host.querySelector('[data-svc-act="vendor"]')?.addEventListener('change', (e) => {
+    const prev = svc.vendor || '';
+    const next = e.target.value;
+    if (next === prev) return;
+    mrwReplaceVendor(svc, next);
+    syncSvc();
+    const msg = prev
+      ? ('Replaced ' + prev + ' with ' + (next || 'Unassigned') + ' — service kept')
+      : ('Vendor set to ' + (next || 'Unassigned'));
+    toast(msg);
+    paintSvc();
   });
   host.querySelector('[data-svc-act="date"]')?.addEventListener('change', (e) => {
     svc.scheduled_date = e.target.value;
     syncSvc();
+    try { renderCalendar(); } catch {}
+  });
+  host.querySelectorAll('[data-svc-act="slot"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mrwApplySlot(svc, btn.dataset.slot);
+      syncSvc();
+      paintSvc();
+    });
+  });
+  host.querySelectorAll('[data-svc-act="hour"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      mrwApplyHour(svc, btn.dataset.hour);
+      syncSvc();
+      paintSvc();
+    });
+  });
+  host.querySelector('[data-svc-act="approve-color"]')?.addEventListener('click', () => {
+    mrwApproveColor(svc, 'Supervisor');
+    toast('Color change approved — confirm and schedule are unlocked');
+    paintSvc();
+  });
+  host.querySelector('[data-svc-act="email-send"]')?.addEventListener('click', () => {
+    if (mrwVendorKind(svc.vendor) !== 'outsourced') { toast('In-house crew — no vendor email'); return; }
+    mrwMarkEmailSent(svc);
+    toast('Request emailed to ' + svc.vendor + ' · waiting on viewed');
+    paintSvc();
+  });
+  host.querySelector('[data-svc-act="email-view"]')?.addEventListener('click', () => {
+    if (!mrwMarkEmailViewed(svc)) { toast('Send the request email first'); return; }
+    toast(svc.vendor + ' viewed the request email');
+    paintSvc();
   });
   host.querySelectorAll('.d-svc-confirm [data-via]').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (!svc.vendor) { toast('Pick a vendor first'); return; }
-      if (paused) { toast('Pest-blocked — other services paused'); return; }
-      if (blocked) { toast('Cleaning blocked — confirm water and electric'); return; }
+      const why = mrwConfirmBlockReason({ ...svc, paused_pest: paused, blocked_utils: blocked }, turn);
+      if (why) { toast(why); return; }
       const via = btn.dataset.via;
       if (svc.confirm === 'confirmed' && svc.confirm_via === via) {
         svc.confirm = 'pending';
@@ -4141,9 +4602,8 @@ function renderTurnSvcPanel(t, serviceId){
     });
   });
   host.querySelector('[data-svc-act="schedule"]')?.addEventListener('click', () => {
-    if (!svc.vendor) { toast('Pick a vendor / tech first'); return; }
-    if (paused) { toast('Pest-blocked — other services paused'); return; }
-    if (blocked) { toast('Cleaning blocked — confirm water and electric'); return; }
+    const why = mrwConfirmBlockReason({ ...svc, paused_pest: paused, blocked_utils: blocked }, turn);
+    if (why) { toast(why); return; }
     const dateEl = host.querySelector('[data-svc-act="date"]');
     svc.scheduled_date = (dateEl && dateEl.value) || svc.scheduled_date || t.move_out_date || todayKeyNY();
     svc.confirm = 'confirmed';
@@ -4173,19 +4633,22 @@ function renderDemoUnitSchedule(t){
     return;
   }
   el.innerHTML = services.map(s => {
-    const ready = s.confirm === 'confirmed' && s.scheduled_date;
+    const colorWait = mrwNeedsColorApproval(s) && !s.color_approved;
+    const ready = s.confirm === 'confirmed' && s.scheduled_date && !colorWait;
     const who = s.vendor || t.owner_name || '';
+    const slot = mrwSlotLabel(s);
     const label = ready
-      ? `${esc(s.label || tradeLabel(s.trade))} · ${esc(who || 'Unassigned')} · ${esc(fmtDate(s.scheduled_date))}`
-      : `Schedule${who ? ' ' + esc(who) : ''} · ${esc(s.label || tradeLabel(s.trade) || 'service')}`;
-    const cls = ready ? 'ok' : (s.vendor ? 'wait' : '');
+      ? `${esc(s.label || tradeLabel(s.trade))} · ${esc(who || 'Unassigned')} · ${esc(fmtDate(s.scheduled_date))}${slot ? ' · ' + esc(slot) : ''}`
+      : `Schedule${who ? ' ' + esc(who) : ''} · ${esc(s.label || tradeLabel(s.trade) || 'service')}${slot ? ' · ' + esc(slot) : ''}`;
+    const cls = colorWait ? 'colorwait' : (ready ? 'ok' : (s.vendor ? 'wait' : ''));
     const blocked = !!(s.blocked_utils || (mrwNeedsUtilities(s) && !mrwUtilitiesOk(t.utilities || {})));
     const red = blocked ? ' blocked' : '';
+    const go = colorWait ? 'Approve' : (ready ? 'Open' : 'Schedule');
     return `<button type="button" class="d-sched-svc ${cls}${red}" data-svc-id="${esc(s.id)}">
-      <span class="d-sched-svc-label">${label}</span>
-      <span class="d-sched-svc-go">${ready ? 'Open' : 'Schedule'}</span>
+      <span class="d-sched-svc-label">${label}${mrwInHouseBadgeHtml(s.vendor)}${mrwColorBadgeHtml(s)}${mrwEmailBadgeHtml(s)}</span>
+      <span class="d-sched-svc-go">${go}</span>
     </button>`;
-  }).join('') + `<p style="font-size:11px;color:var(--faint);margin:8px 0 0">Demo ${L.unit} — tap a row or pipeline chip to schedule / open detail.</p>`;
+  }).join('') + `<p style="font-size:11px;color:var(--faint);margin:8px 0 0">Demo ${L.unit} — tap a row or pipeline chip to schedule / open detail. ${esc(MRW_KEYS_COPY)}</p>`;
   el.querySelectorAll('[data-svc-id]').forEach(btn => {
     btn.addEventListener('click', () => openTurnService(t.id, btn.dataset.svcId));
   });
@@ -4849,6 +5312,7 @@ function renderMrWizard(){
       </div>`;
   } else if (w.step === 2) {
     if (mrwIsEviction(w)) mrwSeedEviction(w);
+    (w.services || []).forEach(mrwEnsureAccessSlot);
     const orderSnap = mrwEnforceOrder(w);
     mrwApplyDateSpread(w);
     const unitBit = (w.unit_label || '').trim();
@@ -4866,6 +5330,7 @@ function renderMrWizard(){
     const urgBit = mrwUrgencyChipHtml(w);
     body.innerHTML = `
       <div class="mrw-urg-row">${urgBit}</div>
+      ${mrwKeysNoteHtml()}
       ${mrwPipelineStripHtml(w)}
       ${dbl}
       ${mrwPestChecklistHtml(w, 'mrw-pest')}
@@ -4896,6 +5361,7 @@ function renderMrWizard(){
       state.mrw._toastOrder = '';
     }
   } else {
+    (w.services || []).forEach(mrwEnsureAccessSlot);
     mrwApplyDateSpread(w);
     title.textContent = 'Review & create';
     lede.textContent = 'Lands on the Make Ready Board as Received.';
@@ -4912,13 +5378,13 @@ function renderMrWizard(){
       ${note ? `<div class="rv-card" style="border-color:color-mix(in srgb,var(--amber) 35%,var(--border));background:var(--amber-bg)"><div class="k">Supervisor note</div><div class="v" style="color:var(--amber)">${esc(note)}</div></div>` : ''}
       ${w.spread?.doubleBook ? `<div class="rv-card" style="border-color:color-mix(in srgb,var(--amber) 35%,var(--border));background:var(--amber-bg)"><div class="k">Schedule</div><div class="v" style="color:var(--amber)">You need to double book — some days have two services.</div></div>` : ''}
       <div class="rv-card"><div class="k">Services</div>
+        ${mrwKeysNoteHtml()}
         ${w.services.map(s => {
-          const st = s.confirm === 'confirmed' ? 'confirmed' : (s.vendor && s.confirm !== 'confirmed' ? 'pending' : 'open');
-          const stLabel = s.paused_pest ? 'Paused — pest' : (st === 'confirmed' ? 'Scheduled' : (st === 'pending' ? 'Pending' : 'Open'));
-          const stCls = s.paused_pest ? 'paused' : st;
+          const status = mrwSvcStatus(s);
           const when = s.scheduled_date ? fmtDate(s.scheduled_date) : '—';
-          const slot = s.slot_n ? (s.slot_n + '. ') : '';
-          return `<div class="rv-svc"><span><b>${esc(slot + s.label)}</b>${s.vendor ? ' · ' + esc(s.vendor) : ''}${s.confirm_via ? ' · via ' + esc(s.confirm_via) : ''}<span class="mrw-rv-date">${esc(when)}</span></span><span class="svc-status ${stCls}">${stLabel}</span></div>`;
+          const slotN = s.slot_n ? (s.slot_n + '. ') : '';
+          const win = mrwSlotLabel(s);
+          return `<div class="rv-svc"><span><b>${esc(slotN + s.label)}</b>${s.vendor ? ' · ' + esc(s.vendor) : ''}${s.confirm_via ? ' · via ' + esc(s.confirm_via) : ''}${mrwInHouseBadgeHtml(s.vendor)}${mrwColorBadgeHtml(s)}${mrwEmailBadgeHtml(s)}<span class="mrw-rv-date">${esc(when)}${win ? ' · ' + esc(win) : ''}</span></span><span class="svc-status ${status.key}">${esc(status.label)}</span></div>`;
         }).join('')}
       </div>
     </div>`;
@@ -4928,31 +5394,38 @@ function renderMrWizard(){
 function svcRowHtml(s, i){
   const blocked = !!s.blocked_utils;
   const paused = !!s.paused_pest;
-  const st = paused ? 'paused' : (blocked ? 'blocked' : (s.confirm === 'confirmed' ? 'confirmed' : (s.vendor ? 'pending' : 'open')));
-  const stLabel = paused ? 'Paused — pest' : (blocked ? 'Blocked — utilities' : (st === 'confirmed' ? 'Scheduled' : (st === 'pending' ? 'Pending confirm' : 'No vendor')));
+  const status = mrwSvcStatus(s);
   const vendorOpts = DEMO_VENDORS.map(v =>
     `<option value="${esc(v.id)}" ${s.vendor===v.id?'selected':''}>${esc(v.label)}</option>`
   ).join('');
+  const extraVendor = (s.vendor && !DEMO_VENDORS.some(v => v.id === s.vendor))
+    ? `<option value="${esc(s.vendor)}" selected>${esc(s.vendor)}</option>` : '';
   const slot = s.slot_n || (i + 1);
   let when = s.scheduled_date ? fmtDate(s.scheduled_date) : '—';
   if (s.scheduled_end && s.scheduled_end !== s.scheduled_date) when = fmtDate(s.scheduled_date) + '–' + fmtDate(s.scheduled_end);
   if (s.day_part) when += ' · ' + s.day_part;
-  const confirmDis = (!s.vendor || blocked || paused) ? 'disabled' : '';
-  const blockTitle = paused ? 'Pest-blocked — other services paused' : (blocked ? 'Cleaning blocked — confirm water and electric' : 'Confirm via link');
+  const blockReason = mrwConfirmBlockReason(s, state.mrw);
+  const confirmDis = blockReason ? 'disabled' : '';
+  const blockTitle = blockReason || 'Confirm via link';
   const labelShow = s.day_part ? (s.label + ' (' + s.day_part + ')') : s.label;
-  return `<div class="svc-row${blocked?' svc-blocked':''}${paused?' svc-paused':''}" draggable="true" data-idx="${i}" data-kind="${esc(mrwKind(s))}">
+  const colorCls = status.key === 'colorwait' ? ' svc-colorwait' : '';
+  return `<div class="svc-row${blocked?' svc-blocked':''}${paused?' svc-paused':''}${colorCls}" draggable="true" data-idx="${i}" data-kind="${esc(mrwKind(s))}">
     <div class="grip" aria-hidden="true">⠿</div>
     <div class="svc-main">
-      <div class="svc-title"><span class="svc-slot">${slot}</span> ${esc(labelShow)} <span class="svc-date-chip">${esc(when)}</span> <span class="svc-status ${st}">${stLabel}</span></div>
+      <div class="svc-title"><span class="svc-slot">${slot}</span> ${esc(labelShow)} <span class="svc-date-chip">${esc(when)}</span> ${mrwInHouseBadgeHtml(s.vendor)} <span class="svc-status ${status.key}">${esc(status.label)}</span></div>
+      <div class="svc-badges">${mrwColorBadgeHtml(s)}${mrwEmailBadgeHtml(s)}</div>
       <div class="svc-sub">${esc(s.hint || tradeLabel(s.trade) || '')}${paused ? ' · Paused until pest wait clears' : ''}${blocked ? ' · Needs water + electric before confirm' : ''}</div>
+      ${mrwColorApproveHtml(s, 'data-act')}
       <div class="svc-vend">
-        <select data-act="vendor" aria-label="Vendor for ${esc(s.label)}" ${paused?'disabled':''}>${vendorOpts}</select>
+        <select data-act="vendor" aria-label="${s.vendor ? 'Replace vendor for' : 'Vendor for'} ${esc(s.label)}" ${paused?'disabled':''}>${extraVendor}${vendorOpts}</select>
         <div class="svc-confirm" data-confirm-for="${i}">
           <button type="button" data-via="link" class="${s.confirm_via==='link'?'on':''}" ${confirmDis} title="${esc(blockTitle)}">Link</button>
-          <button type="button" data-via="text" class="${s.confirm_via==='text'?'on':''}" ${confirmDis} title="${paused?'Pest-blocked — other services paused':(blocked?'Cleaning blocked — confirm water and electric':'Confirm via text')}">Text</button>
-          <button type="button" data-via="call" class="${s.confirm_via==='call'?'on':''}" ${confirmDis} title="${paused?'Pest-blocked — other services paused':(blocked?'Cleaning blocked — confirm water and electric':'Confirm via call')}">Call</button>
+          <button type="button" data-via="text" class="${s.confirm_via==='text'?'on':''}" ${confirmDis} title="${esc(blockTitle)}">Text</button>
+          <button type="button" data-via="call" class="${s.confirm_via==='call'?'on':''}" ${confirmDis} title="${esc(blockTitle)}">Call</button>
         </div>
       </div>
+      ${mrwSlotPickerHtml(s, 'data-act')}
+      ${mrwEmailHandoffHtml(s, state.mrw?.unit_label, 'data-act')}
     </div>
     <div class="svc-actions">
       <button type="button" class="svc-rm" data-act="rm" aria-label="Remove">Remove</button>
@@ -5001,23 +5474,60 @@ function bindSvcListInteractions(){
     row.querySelector('[data-act="vendor"]')?.addEventListener('change', (e) => {
       const s = state.mrw.services[Number(row.dataset.idx)];
       if (!s) return;
-      s.vendor = e.target.value;
-      if (!s.vendor) { s.confirm = ''; s.confirm_via = ''; /* keep spread scheduled_date */ }
-      else if (s.confirm !== 'confirmed') s.confirm = 'pending';
+      const prev = s.vendor || '';
+      const next = e.target.value;
+      if (next === prev) return;
+      mrwReplaceVendor(s, next);
+      if (prev && next) toast('Replaced ' + prev + ' with ' + next + ' — service kept');
+      else if (!next) toast('Vendor cleared — service kept');
+      renderMrWizard();
+    });
+    row.querySelectorAll('[data-act="slot"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const s = state.mrw.services[Number(row.dataset.idx)];
+        if (!s) return;
+        mrwApplySlot(s, btn.dataset.slot);
+        renderMrWizard();
+      });
+    });
+    row.querySelectorAll('[data-act="hour"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const s = state.mrw.services[Number(row.dataset.idx)];
+        if (!s) return;
+        mrwApplyHour(s, btn.dataset.hour);
+        renderMrWizard();
+      });
+    });
+    row.querySelector('[data-act="approve-color"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = state.mrw.services[Number(row.dataset.idx)];
+      if (!s) return;
+      mrwApproveColor(s, 'Supervisor');
+      toast('Color change approved — confirm and schedule are unlocked');
+      renderMrWizard();
+    });
+    row.querySelector('[data-act="email-send"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = state.mrw.services[Number(row.dataset.idx)];
+      if (!s || mrwVendorKind(s.vendor) !== 'outsourced') { toast('Outside vendor required for email handoff'); return; }
+      mrwMarkEmailSent(s);
+      toast('Request emailed to ' + s.vendor + ' · waiting on viewed');
+      renderMrWizard();
+    });
+    row.querySelector('[data-act="email-view"]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = state.mrw.services[Number(row.dataset.idx)];
+      if (!s || !mrwMarkEmailViewed(s)) { toast('Send the request email first'); return; }
+      toast(s.vendor + ' viewed the request email');
       renderMrWizard();
     });
     row.querySelectorAll('.svc-confirm button[data-via]').forEach(btn => {
       btn.addEventListener('click', () => {
         const s = state.mrw.services[Number(row.dataset.idx)];
-        if (!s || !s.vendor) { toast('Pick a vendor first'); return; }
-        if (s.paused_pest || (mrwPestGateActive(state.mrw) && mrwKind(s) !== 'pest')) {
-          toast('Pest-blocked — other services paused until ' + fmtDate(state.mrw.pest_resume_date || mrwPestResumeDate(state.mrw)));
-          return;
-        }
-        if (s.blocked_utils || (mrwNeedsUtilities(s) && !mrwUtilitiesOk(state.mrw.utilities))) {
-          toast('Cleaning blocked — confirm water and electric');
-          return;
-        }
+        const why = mrwConfirmBlockReason(s, state.mrw);
+        if (why) { toast(why); return; }
         const via = btn.dataset.via;
         // Toggle: same via again → unconfirm back to pending
         if (s.confirm === 'confirmed' && s.confirm_via === via) {
@@ -5048,7 +5558,13 @@ function bindSvcListInteractions(){
     }
     // Insert before cleaning if present
     const cleanIdx = state.mrw.services.findIndex(s => s.id === 'cleaning' || normalizeTradeId(s.trade) === 'cleaning');
-    const extra = { id: tid + '-' + Date.now().toString(36), trade: tid, label: meta.label, hint: 'Extra', vendor: '', confirm: '', confirm_via: '', scheduled_date: '', slot_n: 0 };
+    const extra = mrwBlankService({
+      id: tid + '-' + Date.now().toString(36),
+      trade: tid,
+      label: meta.label,
+      hint: tid === 'color_change' ? 'Needs PM / supervisor approval before it can be scheduled' : 'Extra',
+    });
+    mrwEnsureAccessSlot(extra);
     if (cleanIdx >= 0) state.mrw.services.splice(cleanIdx, 0, extra);
     else state.mrw.services.push(extra);
     mrwEnforceOrder(state.mrw);
@@ -5082,11 +5598,12 @@ function bindSvcListInteractions(){
       // Auto-add pest control when flag checked
       const meta = UNIT_TRADE_BY_ID.pest_control;
       if (meta) {
-        state.mrw.services.unshift({
+        const pestSvc = mrwBlankService({
           id: 'pest-' + Date.now().toString(36), trade: 'pest_control', label: meta.label,
-          hint: 'Hard gate — other trades wait', vendor: '', confirm: '', confirm_via: '',
-          scheduled_date: '', slot_n: 0,
+          hint: 'Hard gate — other trades wait',
         });
+        mrwEnsureAccessSlot(pestSvc);
+        state.mrw.services.unshift(pestSvc);
         mrwEnforceOrder(state.mrw);
       }
     }
