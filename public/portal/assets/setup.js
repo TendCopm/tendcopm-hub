@@ -604,7 +604,7 @@
       persistViewingVendorsToHub();
     }
     try { sessionStorage.setItem('hub_setup_complete', '1'); } catch {}
-    location.href = 'app.html?demo=1&v=20261027create12';
+    location.href = 'app.html?demo=1&v=20261027mobileAgenda';
   }
 
   function finish() {
@@ -613,7 +613,7 @@
 
   function goHubSkip() {
     // Footer “Skip to Hub” — leave setup entirely
-    location.href = 'app.html?demo=1&v=20261027create12';
+    location.href = 'app.html?demo=1&v=20261027mobileAgenda';
   }
 
   document.getElementById('setup-back')?.addEventListener('click', () => {

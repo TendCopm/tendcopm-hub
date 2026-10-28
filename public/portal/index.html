@@ -11,12 +11,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TendCo Hub">
-<link rel="manifest" href="manifest.webmanifest?v=20261027create12">
+<link rel="manifest" href="manifest.webmanifest?v=20261027mobileAgenda">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/portal.css?v=20261026create17b">
+<link rel="stylesheet" href="assets/portal.css?v=20261027mobileAgenda">
 <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
 </head>
 <body>
@@ -36,7 +36,7 @@
     </dl>
     <button class="btn pri demo-enter" type="button" id="demo-enter">Enter demo</button>
     <p class="demo-callout-fine">Or use the form → fields are prefilled so you can also experience signing in.</p>
-    <p class="demo-callout-fine"><a href="app.html?demo=1&amp;v=20261027create12#houses" style="color:#fff;font-weight:800">Open Houses preview</a> — addresses and map, separate from make-ready units.</p>
+    <p class="demo-callout-fine"><a href="app.html?demo=1&amp;v=20261027mobileAgenda#houses" style="color:#fff;font-weight:800">Open Houses preview</a> — addresses and map, separate from make-ready units.</p>
   </aside>
 
   <div class="login-wrap">
@@ -123,15 +123,15 @@
       });
       const data = await r.json();
       if(!r.ok){
-        if(isDemo){ location.href = 'app.html?demo=1&v=20261027create12'; return true; }
+        if(isDemo){ location.href = 'app.html?demo=1&v=20261027mobileAgenda'; return true; }
         showErr(data.error || 'Could not sign in');
         if(btn) btn.disabled = false;
         return false;
       }
-      location.href = isDemo ? 'app.html?demo=1&v=20261027create12' : 'app';
+      location.href = isDemo ? 'app.html?demo=1&v=20261027mobileAgenda' : 'app';
       return true;
     }catch(err){
-      if(isDemo){ location.href = 'app.html?demo=1&v=20261027create12'; return true; }
+      if(isDemo){ location.href = 'app.html?demo=1&v=20261027mobileAgenda'; return true; }
       showErr('Network error. Try again.');
       if(btn) btn.disabled = false;
       return false;
@@ -169,7 +169,7 @@
 
   // If already signed in, go to app
   fetch(API + '/me', {credentials:'include'}).then(r => r.ok ? r.json() : null).then(d => {
-    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027create12' : 'app';
+    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027mobileAgenda' : 'app';
   }).catch(()=>{});
 
   document.getElementById('login-form').addEventListener('submit', async function(e){
