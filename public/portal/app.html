@@ -12,13 +12,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="TendCo Hub">
-<link rel="manifest" href="manifest.webmanifest?v=20261027mobileAgenda">
+<link rel="manifest" href="manifest.webmanifest?v=20261027residential1">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css?v=20261027mobileAgenda">
-<link rel="stylesheet" href="assets/portal.css?v=20261027mobileAgenda">
+<link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css?v=20261027residential1">
+<link rel="stylesheet" href="assets/portal.css?v=20261027residential1">
 <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
 </head>
 <body>
@@ -448,13 +448,14 @@
         <div class="page-h">
           <div>
             <h2>Address board</h2>
-            <p id="hs-board-sub">Street addresses only — houses are not units.</p>
+            <p id="hs-board-sub">One engineer oversees several homes. Open a house for every service and its calendar.</p>
           </div>
           <div class="r">
             <button class="btn pri sm" type="button" id="btn-hs-add">+ Add a house</button>
           </div>
         </div>
         <div id="hs-filters-board"></div>
+        <div id="hs-span-board"></div>
         <div id="hs-board"></div>
       </section>
 
@@ -462,16 +463,18 @@
         <div class="page-h">
           <div>
             <h2>House map</h2>
-            <p id="hs-map-sub">One pin per address. Homes in the same area cluster so a crew can work the neighborhood.</p>
+            <p id="hs-map-sub">Every address stays on the map. A day, week, or month highlights the houses booked then.</p>
           </div>
         </div>
         <div id="hs-filters-map"></div>
+        <div id="hs-span-map"></div>
         <div class="hs-map-layout">
           <div class="hs-map-wrap">
             <div id="hs-map" role="region" aria-label="Map of house addresses"></div>
             <p class="hs-map-fallback" id="hs-map-fallback" hidden>Map could not start. Addresses are still listed beside it.</p>
             <div class="hs-legend" aria-hidden="true">
               <span><i class="hs-leg-pin"></i> Address</span>
+              <span><i class="hs-leg-hit"></i> Booked in the selected range</span>
               <span><i class="hs-leg-cluster"></i> Area cluster</span>
               <span><i class="hs-leg-route"></i> Route order</span>
             </div>
@@ -850,7 +853,7 @@
 </div>
 
 <div class="drawer-bg" id="house-drawer-bg"></div>
-<aside class="drawer" id="house-drawer" aria-hidden="true" aria-label="House">
+<aside class="drawer" id="house-drawer" aria-hidden="true" aria-label="House profile">
   <div class="drawer-h">
     <div>
       <h3 id="hs-d-title">Address</h3>
@@ -943,11 +946,11 @@
     <button class="btn pri sm hidden" type="button" id="pwa-install">Install</button>
   </div>
 </div>
-<script src="assets/vendor/leaflet/leaflet.js?v=20261027mobileAgenda"></script>
-<script src="assets/app.js?v=20261027mobileAgenda"></script>
-<script src="assets/maps-config.js?v=20261027mobileAgenda"></script>
-<script src="assets/houses.js?v=20261027mobileAgenda"></script>
-<script src="assets/pwa.js?v=20261027mobileAgenda"></script>
-<script src="assets/tendy.js?v=20261027mobileAgenda"></script>
+<script src="assets/vendor/leaflet/leaflet.js?v=20261027residential1"></script>
+<script src="assets/app.js?v=20261027residential1"></script>
+<script src="assets/maps-config.js?v=20261027residential1"></script>
+<script src="assets/houses.js?v=20261027residential1"></script>
+<script src="assets/pwa.js?v=20261027residential1"></script>
+<script src="assets/tendy.js?v=20261027residential1"></script>
 </body>
 </html>
