@@ -1,9 +1,10 @@
+import { listInternalAlerts } from './ar-alert.js';
 import { actorFromRequest, isInternalActor } from './auth.js';
+import { loadHubWorkOrders } from './hub-ar-contract.js';
 import {
   addContact,
   addFollowup,
   addNote,
-  arSummary,
   completeFollowup,
   createClient,
   createDraft,
@@ -13,7 +14,6 @@ import {
   getClient,
   getJob,
   getSite,
-  grantStaff,
   listActivity,
   listClients,
   listDrafts,
@@ -61,8 +61,10 @@ async function readBody(request) {
   }
 }
 
-function deny(status, error) {
-  return json(status, { ok: false, error });
+function deny(status, error, code) {
+  const body = { ok: false, error };
+  if (code) body.code = code;
+  return json(status, body);
 }
 
 export async function handleCrm(request, deps) {
@@ -70,7 +72,7 @@ export async function handleCrm(request, deps) {
     return await routeCrm(request, deps);
   } catch (err) {
     const message = err && err.message ? err.message : '';
-    if (err && err.status) return deny(err.status, message);
+    if (err && err.status) return deny(err.status, message, err.code);
     if (/no such table/i.test(message)) return deny(503, 'CRM storage is not initialized');
     return deny(500, 'CRM request failed');
   }
@@ -187,8 +189,27 @@ async function routeCrm(request, deps) {
   if (parts[0] === 'activity' && method === 'GET') {
     return json(200, { ok: true, activity: await listActivity(db, q.get('entity_type'), q.get('entity_id')) });
   }
-  if (parts[0] === 'ar' && parts[1] === 'summary' && method === 'GET') {
-    return json(200, { ok: true, ...(await arSummary(db, now)) });
+  if (parts[0] === 'ar' && method === 'GET' && (parts.length === 1 || parts[1] === 'summary')) {
+    let alerts = [];
+    try {
+      alerts = await listInternalAlerts(db);
+    } catch (err) {
+      if (!/no such table/i.test(err && err.message || '')) throw err;
+    }
+    return json(200, {
+      ok: true,
+      authoritative: false,
+      blocked: true,
+      code: 'hub_work_order_source_unavailable',
+      route: '/portal/api/turns/:id',
+      done_status: 'complete',
+      work_orders: [],
+      alerts,
+    });
+  }
+  if (parts[0] === 'ar' && parts[1] === 'close' && method === 'POST') {
+    await loadHubWorkOrders();
+    return deny(500, 'CRM request failed');
   }
   if (parts[0] === 'schedule' && method === 'GET') {
     return json(200, { ok: true, jobs: await listJobs(db, now, {
@@ -212,8 +233,8 @@ async function routeCrm(request, deps) {
   if (parts[0] === 'admin' && parts[1] === 'high-water' && method === 'POST') {
     return json(200, { ok: true, counters: await setHighWater(db, actor, now, body) });
   }
-  if (parts[0] === 'admin' && parts[1] === 'grant-staff' && method === 'POST') {
-    return json(200, { ok: true, user: await grantStaff(db, actor, now, body) });
+  if (parts[0] === 'admin' && parts[1] === 'grant-staff') {
+    return deny(403, 'CRM does not grant Hub access. Use an existing internal session.', 'session_required');
   }
   if (parts[0] === 'drafts' && parts[2] === 'send') {
     return deny(405, 'Drafts are not sent from the CRM');

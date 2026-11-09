@@ -27,6 +27,7 @@ export function openCrmDb() {
     );
   `);
   db.exec(readFileSync(new URL('../migrations/0016_crm_internal.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0017_crm_internal_alerts.sql', import.meta.url), 'utf8'));
   return wrap(db);
 }
 

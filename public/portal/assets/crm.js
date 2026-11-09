@@ -85,17 +85,18 @@
   }
 
   async function followupsPage() {
-    setTitle('Follow-ups', 'Open work and invoice clock');
-    const [follow, ar] = await Promise.all([api('/followups?status=open'), api('/ar/summary')]);
-    const overdue = ar.overdue || [];
+    setTitle('Follow-ups', 'Internal workspace');
+    const [follow, ar] = await Promise.all([api('/followups?status=open'), api('/ar')]);
+    const alerts = (ar.alerts || []).filter((row) => row.status === 'open');
     root.innerHTML = `
-      ${overdue.length ? `<div class="crm-warn">${overdue.length} job${overdue.length === 1 ? '' : 's'} done more than 24 hours without the invoice sent. ${overdue.map((j) => `<a href="#/jobs/${esc(j.id)}">${esc(j.public_id)}</a>`).join(' · ')}</div>` : '<div class="card card-b" style="margin-bottom:12px">No invoice-sent alerts right now.</div>'}
+      <div class="crm-warn">Hub AR is blocked. Done work is the Hub turn (<code>PATCH /portal/api/turns/:id</code>, status complete). That server is not in this repo, so this page does not keep a second job list for invoices. A scheduled internal alert, not this page view, is what records the 24-hour event.</div>
+      ${alerts.length ? `<div class="card card-b" style="margin-bottom:12px">${alerts.map((row) => `<p><b>${esc(row.alert_code)}</b> · ${esc(row.work_order_id)} · ${esc(row.channel)}</p>`).join('')}</div>` : ''}
       <div class="card"><div class="card-h"><h3>Open follow-ups</h3></div><div class="card-b">
         <table class="crm-table"><thead><tr><th>Due</th><th>Owner</th><th>Note</th></tr></thead><tbody>
         ${(follow.followups || []).map((f) => `<tr><td>${esc(f.due_on)}</td><td>${esc(f.owner_name)}</td><td>${esc(f.note)} <button class="btn sec sm" data-done="${esc(f.id)}" type="button">Done</button></td></tr>`).join('') || '<tr><td colspan="3">No open follow-ups.</td></tr>'}
         </tbody></table>
       </div></div>
-      <p style="margin-top:12px;color:var(--muted)">Done → invoice created averages ${esc(ar.averages_hours && ar.averages_hours.done_to_sent != null ? ar.averages_hours.done_to_sent + ' h' : '—')}.</p>`;
+      <p style="margin-top:12px;color:var(--muted)">Feed: ${esc(ar.code || 'unknown')}. Work orders returned: ${(ar.work_orders || []).length}.</p>`;
     root.querySelectorAll('[data-done]').forEach((btn) => btn.addEventListener('click', async () => {
       await api('/followups/' + btn.dataset.done + '/done', { method: 'POST', body: '{}' });
       toast('Follow-up completed');
@@ -265,21 +266,18 @@
     const j = data.job;
     const notes = await api('/notes?entity_type=job&entity_id=' + encodeURIComponent(id));
     setTitle(j.public_id, j.title);
-    const nextAr = { none: 'created', created: 'sent', sent: 'check_received', check_received: 'deposited' }[j.ar_stage];
     root.innerHTML = `<div class="page-h"><div><h2>${esc(j.title)}</h2><p>${esc(j.public_id)} · ${esc(j.client_public_id)} · ${esc(j.site_public_id)} ${esc(j.site_name)}</p></div></div>
-      ${j.invoice_overdue ? '<div class="crm-warn">Done more than 24 hours ago and the invoice is not marked sent.</div>' : ''}
+      <div class="crm-warn">This TC number is not the AR record. Invoice close follows the Hub turn, and that link is blocked until the turn API source is in the repo.</div>
       <div class="crm-split">
         <div class="card"><div class="card-h"><h3>Activity on this job</h3></div><div class="card-b" id="job-notes">
-          <p>Status <b>${esc(j.status)}</b> · AR <b>${esc(j.ar_stage)}</b> · QuickBooks <b>${esc(j.qb_invoice_ref || '—')}</b></p>
+          <p>Status <b>${esc(j.status)}</b></p>
           ${(notes.notes || []).map((n) => `<div class="crm-note"><b>${esc(n.author_name)}</b><div>${esc(n.body)}</div></div>`).join('')}
         </div></div>
         <div>
           <form class="card card-b crm-form" id="job-status" style="margin-bottom:16px">
             <h3>Status</h3>
-            ${field('Status', `<select name="status">${['scheduled','on_the_way','arrived','started','done','needs_return','closed'].map((s) => `<option ${s===j.status?'selected':''}>${s}</option>`).join('')}</select>`)}
-            ${field('QuickBooks invoice #', `<input name="qb_invoice_ref" value="${esc(j.qb_invoice_ref || '')}" placeholder="Manual reference">`)}
+            ${field('Status', `<select name="status">${['scheduled','on_the_way','arrived','started','done','needs_return'].map((s) => `<option ${s===j.status?'selected':''}>${s}</option>`).join('')}</select>`)}
             <button class="btn pri" type="submit">Save</button>
-            ${nextAr ? `<button class="btn sec" type="button" id="ar-next">Mark invoice ${esc(nextAr.replace('_', ' '))}</button>` : ''}
           </form>
           <form class="card card-b crm-form" id="job-note" style="margin-bottom:16px">
             <h3>Note</h3>
@@ -300,15 +298,6 @@
       try {
         await api('/jobs/' + id, { method: 'PATCH', body: JSON.stringify(body) });
         toast('Saved');
-        render();
-      } catch (err) { toast(err.message); }
-    });
-    const arBtn = document.getElementById('ar-next');
-    if (arBtn) arBtn.addEventListener('click', async () => {
-      const ref = document.querySelector('[name=qb_invoice_ref]').value;
-      try {
-        await api('/jobs/' + id, { method: 'PATCH', body: JSON.stringify({ ar_stage: nextAr, qb_invoice_ref: ref }) });
-        toast('AR updated');
         render();
       } catch (err) { toast(err.message); }
     });

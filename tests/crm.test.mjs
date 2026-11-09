@@ -138,18 +138,6 @@ test('site transfer keeps the original number and destination counter', async ()
   const bravoSite = await call(db, 'POST', `/portal/api/crm/clients/${b.json.client.id}/sites`, owner, siteBody('Bravo House'));
   assert.equal(site.json.site.public_id, 'ST-1-001');
   assert.equal(bravoSite.json.site.public_id, 'ST-2-001');
-  const job = await call(db, 'POST', '/portal/api/crm/jobs', owner, {
-    site_id: site.json.site.id, category: 'Work order', job_type_id: 'jt-plumbing', title: 'Leak',
-  });
-  await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { status: 'done' });
-  const blocked = await call(db, 'POST', `/portal/api/crm/sites/${site.json.site.id}/transfer`, owner, {
-    to_client_id: b.json.client.id, transfer_type: 'management', notice_days: 30, who_pays: 'new',
-  });
-  assert.equal(blocked.status, 400);
-  assert.match(blocked.json.error, /invoiced/);
-  await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, {
-    ar_stage: 'created', qb_invoice_ref: 'QB-100',
-  });
   const moved = await call(db, 'POST', `/portal/api/crm/sites/${site.json.site.id}/transfer`, owner, {
     to_client_id: b.json.client.id,
     transfer_type: 'management',
@@ -225,44 +213,23 @@ test('search finds synthetic records and drafts never send', async () => {
   assert.equal(send.status, 405);
 });
 
-test('AR clock, 24 hour overdue flag, and close block', async () => {
+test('CRM jobs are not the AR record', async () => {
   const { db, owner } = await world();
   const client = await call(db, 'POST', '/portal/api/crm/clients', owner, { name: 'AR Example', industry: 'Multifamily' });
   const site = await call(db, 'POST', `/portal/api/crm/clients/${client.json.client.id}/sites`, owner, siteBody('Invoice House'));
   const job = await call(db, 'POST', '/portal/api/crm/jobs', owner, {
     site_id: site.json.site.id, category: 'Make ready', job_type_id: 'jt-cleaning', title: 'Make ready clean',
   });
-  const tooSoon = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, {
-    ar_stage: 'created', qb_invoice_ref: 'QB-1',
+  const before = job.json.job.qb_invoice_ref;
+  const rejected = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, {
+    ar_stage: 'sent', qb_invoice_ref: 'QB-1', status: 'closed',
   });
-  assert.equal(tooSoon.status, 400);
-  const closed = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { status: 'closed' });
-  assert.equal(closed.status, 400);
-  assert.match(closed.json.error, /invoice reference/i);
-  const doneAt = new Date('2026-11-08T12:00:00.000Z');
-  const done = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { status: 'done' }, doneAt);
-  assert.equal(done.json.job.status, 'done');
-  const later = new Date('2026-11-09T13:00:00.000Z');
-  const overdue = await call(db, 'GET', `/portal/api/crm/jobs/${job.json.job.id}`, owner, null, later);
-  assert.equal(overdue.json.job.invoice_overdue, true);
-  const summary = await call(db, 'GET', '/portal/api/crm/ar/summary', owner, null, later);
-  assert.equal(summary.json.counts.overdue, 1);
-  const created = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, {
-    ar_stage: 'created', qb_invoice_ref: 'QB-200',
-  }, later);
-  assert.equal(created.json.job.ar_stage, 'created');
-  assert.equal(created.json.job.invoice_overdue, true);
-  const sentAt = new Date('2026-11-09T14:00:00.000Z');
-  const sent = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { ar_stage: 'sent' }, sentAt);
-  assert.equal(sent.json.job.invoice_overdue, false);
-  await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { ar_stage: 'check_received' }, sentAt);
-  await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { ar_stage: 'deposited' }, sentAt);
-  const finished = await call(db, 'PATCH', `/portal/api/crm/jobs/${job.json.job.id}`, owner, { status: 'closed' }, sentAt);
-  assert.equal(finished.status, 200);
-  assert.equal(finished.json.job.status, 'closed');
-  assert.equal(finished.json.job.qb_invoice_ref, 'QB-200');
-  const averages = await call(db, 'GET', '/portal/api/crm/ar/summary', owner, null, sentAt);
-  assert.equal(averages.json.averages_hours.done_to_sent, 26);
+  assert.equal(rejected.status, 409);
+  assert.equal(rejected.json.code, 'hub_work_order_source_unavailable');
+  const reloaded = await call(db, 'GET', `/portal/api/crm/jobs/${job.json.job.id}`, owner);
+  assert.equal(reloaded.json.job.qb_invoice_ref, before);
+  assert.equal(reloaded.json.job.status, 'scheduled');
+  assert.equal(reloaded.json.job.ar_authoritative, false);
 });
 
 test('job type approval stays off the schedule until the owner accepts it', async () => {
@@ -325,19 +292,6 @@ test('site save requires email and a contact', async () => {
   assert.equal(missing.status, 400);
 });
 
-test('staff grant cannot promote a client login', async () => {
-  const { db, owner, pm } = await world();
-  const blocked = await call(db, 'POST', '/portal/api/crm/admin/grant-staff', owner, { user_id: 'user-pm' });
-  assert.equal(blocked.status, 400);
-  assert.equal(JSON.stringify(blocked.json).includes('Northwind'), false);
-  const pmTry = await call(db, 'POST', '/portal/api/crm/admin/grant-staff', pm, { user_id: 'user-staff' });
-  assert.equal(pmTry.status, 403);
-  const granted = await call(db, 'POST', '/portal/api/crm/admin/grant-staff', owner, { user_id: 'user-staff' });
-  assert.equal(granted.status, 200);
-  assert.equal(granted.json.user.role, 'staff');
-  assert.equal(granted.json.user.email, 'blair@tendcopm.com');
-});
-
 test('missing CRM tables do not dump data', async () => {
   const { DatabaseSync } = await import('node:sqlite');
   const raw = new DatabaseSync(':memory:');
@@ -357,19 +311,22 @@ test('missing CRM tables do not dump data', async () => {
 
 test('repo bundle has no client-book markers and Hub pages stay in place', () => {
   const root = new URL('..', import.meta.url).pathname;
-  const needles = [/greystar/i, /tricon/i, /\bcl-\d{4}\b/i];
-  const allowPublicIdIn = new Set();
-  const files = walk(join(root, 'public')).concat(walk(join(root, 'functions')), walk(join(root, 'migrations')));
+  const names = [/greystar/i, /tricon/i, /yardi/i, /invitation homes/i, /progress residential/i, /american homes/i, /firstkey/i, /amherst/i, /resicap/i];
+  const files = walk(join(root, 'public'))
+    .concat(walk(join(root, 'functions')), walk(join(root, 'migrations')), walk(join(root, 'docs')), walk(join(root, 'scripts')));
+  const placeholders = new Set(['workorders@tendcopm.com', 'you@company.com', 'requests@vendor.com', 'pm@theircompany.com']);
+  const emailOk = (value) => placeholders.has(value.toLowerCase())
+    || /@(?:[\w.-]+\.)?(?:example|example\.test|oakridgepm\.example)$/i.test(value);
   for (const file of files) {
-    if (!/\.(js|html|css|sql|json|svg|md)$/.test(file)) continue;
+    if (!/\.(js|mjs|html|css|sql|json|svg|md)$/.test(file)) continue;
     const text = readFileSync(file, 'utf8');
-    for (const needle of needles) {
-      if (needle.test(text) && !file.endsWith('crm.js') && !file.includes(`${join('functions', 'portal', '_lib', 'crm')}`) && !file.endsWith('0016_crm_internal.sql')) {
-        // Public ids are a format, not a client. Only the name markers are forbidden everywhere.
-      }
+    for (const needle of names) assert.equal(needle.test(text), false, file);
+    const emails = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+    for (const email of emails) assert.equal(emailOk(email), true, `${file} ${email}`);
+    if (file.includes(`${join('functions', 'portal')}`) || file.includes(`${join('scripts', 'crm')}`)) {
+      assert.equal(/password\s*[:=]\s*['"][^'"]+['"]/i.test(text), false, file);
+      assert.equal(/hub_session=[A-Za-z0-9]/i.test(text), false, file);
     }
-    assert.equal(/greystar/i.test(text), false, file);
-    assert.equal(/tricon/i.test(text), false, file);
   }
   const app = readFileSync(join(root, 'public/portal/app.html'), 'utf8');
   assert.match(app, /Make Ready Board/);
@@ -380,8 +337,7 @@ test('repo bundle has no client-book markers and Hub pages stay in place', () =>
   assert.match(index, /alex@oakridgepm\.example/);
   const crmJs = readFileSync(join(root, 'public/portal/assets/crm.js'), 'utf8');
   assert.equal(crmJs.includes('localStorage'), false);
-  assert.equal(/@[a-z0-9.-]+\.(com|net|org)/i.test(crmJs), false);
-  void allowPublicIdIn;
+  assert.equal(crmJs.includes('fetch('), true);
 });
 
 function siteBody(name) {

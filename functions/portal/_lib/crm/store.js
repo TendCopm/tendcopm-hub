@@ -5,16 +5,16 @@ import {
   addDays,
   clientPublicId,
   directionsUrl,
-  invoiceOverdue,
   iso,
   isInternalRole,
   jobPublicId,
   sitePublicId,
 } from './constants.js';
 
-export function fail(status, error) {
+export function fail(status, error, code) {
   const err = new Error(error);
   err.status = status;
+  if (code) err.code = code;
   return err;
 }
 
@@ -112,11 +112,11 @@ function publicSite(row, userAgent) {
   };
 }
 
-function publicJob(row, now) {
+function publicJob(row) {
   if (!row) return null;
   return {
     ...row,
-    invoice_overdue: invoiceOverdue(row, now),
+    ar_authoritative: false,
   };
 }
 
@@ -448,16 +448,6 @@ export async function restoreSite(db, actor, now, siteId, userAgent) {
   return getSite(db, siteId, userAgent);
 }
 
-async function openInvoiceGaps(db, siteId) {
-  const rows = await db.prepare(
-    `SELECT public_id, status, qb_invoice_ref FROM crm_jobs
-      WHERE site_id = ? AND deleted_at IS NULL
-        AND status IN ('done', 'needs_return', 'closed')
-        AND trim(qb_invoice_ref) = ''`
-  ).bind(siteId).all();
-  return rows.results || rows;
-}
-
 export async function transferSite(db, actor, now, siteId, body, userAgent) {
   const site = await getSite(db, siteId, userAgent);
   const to = await getClient(db, body.to_client_id);
@@ -468,10 +458,6 @@ export async function transferSite(db, actor, now, siteId, body, userAgent) {
   if (notice !== 30 && notice !== 60) throw fail(400, 'Notice must be 30 or 60 days');
   const who = body.who_pays;
   if (!['previous', 'new', 'tendco'].includes(who)) throw fail(400, 'Who pays must be previous, new, or tendco');
-  const gaps = await openInvoiceGaps(db, siteId);
-  if (gaps.length) {
-    throw fail(400, `Hand-off is blocked until invoiced (${gaps.map((g) => g.public_id).join(', ')})`);
-  }
   let saleBalance = null;
   if (type === 'sale') {
     saleBalance = Number(body.sale_balance_cents);
@@ -655,6 +641,9 @@ export async function listJobs(db, now, filters = {}) {
 }
 
 export async function updateJob(db, actor, now, jobId, body) {
+  if (body && (body.ar_stage || body.status === 'closed' || Object.prototype.hasOwnProperty.call(body, 'qb_invoice_ref'))) {
+    throw fail(409, 'Invoice tracking follows the Hub turn. This CRM job is not the AR record.', 'hub_work_order_source_unavailable');
+  }
   const current = await getJob(db, jobId, now);
   if (body.deleted === true) {
     const at = iso(now);
@@ -756,40 +745,6 @@ export async function restoreJob(db, actor, now, jobId) {
   }
   return getJob(db, jobId, now);
 }
-
-export async function arSummary(db, now) {
-  const jobs = await listJobs(db, now, {});
-  const overdue = jobs.filter((job) => job.invoice_overdue).map((job) => ({
-    id: job.id,
-    public_id: job.public_id,
-    title: job.title,
-    done_at: job.done_at,
-    ar_stage: job.ar_stage,
-    age_hours: Math.round((now.getTime() - Date.parse(job.done_at)) / HOUR) ,
-  }));
-  function avg(pairs) {
-    if (!pairs.length) return null;
-    const sum = pairs.reduce((n, v) => n + v, 0);
-    return Math.round((sum / pairs.length) * 10) / 10;
-  }
-  const hours = (a, b) => (Date.parse(b) - Date.parse(a)) / HOUR;
-  const doneToSent = jobs.filter((j) => j.done_at && j.ar_sent_at).map((j) => hours(j.done_at, j.ar_sent_at));
-  const sentToCheck = jobs.filter((j) => j.ar_sent_at && j.ar_check_at).map((j) => hours(j.ar_sent_at, j.ar_check_at));
-  const checkToDep = jobs.filter((j) => j.ar_check_at && j.ar_deposited_at).map((j) => hours(j.ar_check_at, j.ar_deposited_at));
-  const counts = { none: 0, created: 0, sent: 0, check_received: 0, deposited: 0, overdue: overdue.length };
-  for (const job of jobs) counts[job.ar_stage] = (counts[job.ar_stage] || 0) + 1;
-  return {
-    overdue,
-    counts,
-    averages_hours: {
-      done_to_sent: avg(doneToSent),
-      sent_to_check: avg(sentToCheck),
-      check_to_deposited: avg(checkToDep),
-    },
-  };
-}
-
-const HOUR = 60 * 60 * 1000;
 
 export async function mapPins(db) {
   const rows = await db.prepare(
@@ -941,16 +896,3 @@ export async function setHighWater(db, actor, now, body) {
   return after;
 }
 
-export async function grantStaff(db, actor, now, body) {
-  if (actor.role !== 'owner' && actor.role !== 'admin') throw fail(403, 'Only the owner can grant staff access');
-  const userId = present(body.user_id);
-  if (!userId) throw fail(400, 'User id is required');
-  const user = await db.prepare(`SELECT id, email, role, name FROM users WHERE id = ?`).bind(userId).first();
-  if (!user || !/@tendcopm\.com$/i.test(user.email || '')) {
-    throw fail(400, 'Staff access can only be granted to an existing @tendcopm.com login');
-  }
-  if (user.role === 'owner') return { id: user.id, role: user.role, email: user.email };
-  await db.prepare(`UPDATE users SET role = 'staff' WHERE id = ?`).bind(user.id).run();
-  await activity(db, actor, now, 'admin.grant_staff', 'user', user.id, `Granted staff CRM access to ${user.email}`, { role: user.role }, { role: 'staff' });
-  return { id: user.id, role: 'staff', email: user.email };
-}
