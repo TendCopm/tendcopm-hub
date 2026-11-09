@@ -128,7 +128,7 @@
         if(btn) btn.disabled = false;
         return false;
       }
-      location.href = isDemo ? 'app.html?demo=1&v=20261027residential1' : 'app';
+      location.href = isDemo ? 'app.html?demo=1&v=20261027residential1' : (params.get('next') === 'crm' ? 'crm.html' : 'app');
       return true;
     }catch(err){
       if(isDemo){ location.href = 'app.html?demo=1&v=20261027residential1'; return true; }
@@ -169,7 +169,7 @@
 
   // If already signed in, go to app
   fetch(API + '/me', {credentials:'include'}).then(r => r.ok ? r.json() : null).then(d => {
-    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027residential1' : 'app';
+    if(d && d.ok) location.href = isDemo ? 'app.html?demo=1&v=20261027residential1' : (params.get('next') === 'crm' ? 'crm.html' : 'app');
   }).catch(()=>{});
 
   document.getElementById('login-form').addEventListener('submit', async function(e){
@@ -193,7 +193,7 @@
       });
       const data = await r.json();
       if(!r.ok){ showErr(data.error || 'Could not sign in'); btn.disabled = false; return; }
-      location.href = 'app';
+      location.href = params.get('next') === 'crm' ? 'crm.html' : 'app';
     }catch(err){
       showErr('Network error. Try again.');
       btn.disabled = false;
