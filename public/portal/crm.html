@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>TendCo™ CRM</title>
+<meta name="theme-color" content="#1F5BD8">
+<link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/portal.css?v=20261109crm1">
+<link rel="stylesheet" href="assets/crm.css?v=20261109crm2">
+</head>
+<body>
+<div class="demo-banner">TendCo™ internal CRM <span id="banner-who">· staff only</span></div>
+<div class="sb-overlay" id="sb-overlay"></div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-head"><a href="app.html" aria-label="TendCo Hub"><img src="assets/TendCo-Wordmark-TM.svg" alt="TendCo™" width="150" height="28"></a></div>
+    <div class="prop">
+      <div class="ph">TC</div>
+      <div><b>Internal CRM</b><small>Clients, sites, jobs</small></div>
+    </div>
+    <nav class="nav" aria-label="CRM">
+      <div class="sec">Records</div>
+      <a href="#/followups" data-crm="followups">Follow-ups</a>
+      <a href="#/clients" data-crm="clients">Clients</a>
+      <a href="#/jobs" data-crm="jobs">Jobs</a>
+      <a href="#/schedule" data-crm="schedule">Schedule</a>
+      <div class="sec">Hub</div>
+      <a href="app.html#make-ready">Make Ready Board</a>
+      <a href="app.html#houses">Houses</a>
+      <a href="app.html#schedule">Hub schedule</a>
+      <a href="index.html">Sign in</a>
+    </nav>
+    <div class="sb-foot">
+      <div class="free">TendCo staff only. Clients and vendors do not see these records.</div>
+      <div id="user-foot"> </div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <button class="burger" id="burger" type="button" aria-label="Open menu"><svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div>
+        <h1 id="top-title">CRM</h1>
+        <div class="crumb" id="top-crumb">Internal workspace</div>
+      </div>
+      <div class="sp"></div>
+      <form id="search-form" class="crm-search">
+        <input id="search-q" type="search" placeholder="Search names, CL, ST, TC" aria-label="Search records" autocomplete="off">
+      </form>
+    </header>
+    <div class="content" id="crm-root"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="assets/crm.js?v=20261109crm2"></script>
+</body>
+</html>

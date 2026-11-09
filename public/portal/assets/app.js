@@ -5290,6 +5290,12 @@ async function refresh(){
   document.getElementById('prop-meta').textContent = (data.units||[]).length + ' ' + L.unit_plural;
   document.getElementById('prop-initials').textContent = initials(client);
   document.getElementById('user-foot').textContent = data.user.name + ' · ' + (data.user.role || 'PM').toUpperCase();
+  const internalNav = document.getElementById('nav-internal');
+  if (internalNav) {
+    const role = data.user && data.user.role;
+    const staffCrm = !isDemoMode() && (role === 'owner' || role === 'staff' || role === 'admin');
+    internalNav.classList.toggle('hidden', !staffCrm);
+  }
   document.getElementById('avatar').textContent = initials(data.user.name);
   document.getElementById('avatar').title = data.user.name;
   document.getElementById('top-crumb').textContent = client;
