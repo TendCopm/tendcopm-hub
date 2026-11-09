@@ -88,8 +88,12 @@
     setTitle('Follow-ups', 'Internal workspace');
     const [follow, ar] = await Promise.all([api('/followups?status=open'), api('/ar')]);
     const alerts = (ar.alerts || []).filter((row) => row.status === 'open');
+    const orders = ar.work_orders || [];
     root.innerHTML = `
-      <div class="crm-warn">Hub AR is blocked. Done work is the Hub turn (<code>PATCH /portal/api/turns/:id</code>, status complete). That server is not in this repo, so this page does not keep a second job list for invoices. A scheduled internal alert, not this page view, is what records the 24-hour event.</div>
+      <div class="crm-warn">${ar.blocked ? 'Hub turn table is not readable with the historical writer columns.' : 'Done clock is the Hub turn (status complete, completed_at). This list is only the signed-in client. Cross-client scan stays off because that historical route requires an admin key, which CRM does not use.'} Provenance ${esc(ar.provenance_commit || '')}. Live deployment is not verified.</div>
+      ${orders.length ? `<div class="card" style="margin-bottom:12px"><div class="card-b"><table class="crm-table"><thead><tr><th>Turn</th><th>Done</th><th>AR</th><th>Invoice</th></tr></thead><tbody>
+        ${orders.map((row) => `<tr><td>${esc(row.id)}</td><td>${esc(row.completed_at)}</td><td>${esc(row.ar_stage)}</td><td>${esc(row.qb_invoice_ref || '—')}${row.billing_closed_at ? ' · closed' : ''}</td></tr>`).join('')}
+      </tbody></table></div></div>` : ''}
       ${alerts.length ? `<div class="card card-b" style="margin-bottom:12px">${alerts.map((row) => `<p><b>${esc(row.alert_code)}</b> · ${esc(row.work_order_id)} · ${esc(row.channel)}</p>`).join('')}</div>` : ''}
       <div class="card"><div class="card-h"><h3>Open follow-ups</h3></div><div class="card-b">
         <table class="crm-table"><thead><tr><th>Due</th><th>Owner</th><th>Note</th></tr></thead><tbody>

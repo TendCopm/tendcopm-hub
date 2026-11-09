@@ -19,19 +19,19 @@ Live release is blocked. Two old Cloudflare Pages snapshots (`8f0dd8d4` and `336
 
 The migration file is `migrations/0016_crm_internal.sql`. It only creates `crm_*` tables. It does not alter Hub tables (`users`, `turns`, `units`, and the rest).
 
-## Hub AR — blocked
+## Hub AR — historical writer, live still unverified
 
-The Hub client marks field Done with `PATCH /portal/api/turns/:id` and `{ "status": "complete" }` (`public/portal/assets/app.js`, Log completed work). The label on screen is Tended. The real request does not send `completed_at`. The function that stores that patch, and the `turns` table SQL, are not in this git checkout. A read of the production D1 schema for `turns` returned HTTP 403 on the latest check (`code 7403`). This branch does not guess columns and does not update `turns`, `invoices`, or `notify_outbox`.
+Archive of `tendcopm-pages-deploy` commit `2319029bec170de8f8ae0708430d0a6e67c32bfb` (branch `prod-nav-tendyhub`). That package says it is not the verified live deployment. `migrations/` and `SCHEMA.md` were not tracked at that commit and were not attached. This repo still has no schema file for the current live `turns` table.
 
-`GET /portal/api/crm/ar` for an existing internal session returns `authoritative: false`, `blocked: true`, `code: hub_work_order_source_unavailable`, and `work_orders: []`. `POST /portal/api/crm/ar/close` returns 503 with the same code and writes no job. Patching a `TC` job with `ar_stage`, `qb_invoice_ref`, or `status: closed` returns 409. Opening the page does not create an alert.
+In that commit, field Done is `PATCH /turns/:id` (also `/portal/api/turns/:id`) setting `status` to `complete` and writing `completed_at` when it was empty. Leaving `complete` clears `completed_at`. The session cookie is `__Host-tb_session`. `sessions.id` is the SHA-256 hex of a token matching `^[A-Za-z0-9_-]{40,60}$`, and the lookup joins `users` and `clients`. If `TURN_DB` is bound, that file uses it as its database. A session user only reads turns for `client_id`. Cross-client `GET /admin/turns` requires `X-Admin-Key`. Signup there inserts role `pm` only. The same file emails on complete. The CRM does not call that mailer, does not check an admin key, and does not update `turns`.
 
-The close rule that the missing turn writer must call is `assertInvoiceBeforeClose` in `functions/portal/_lib/crm/hub-ar-contract.js`: a billing close requires a manual QuickBooks reference. There is no Intuit connection.
+`GET /portal/api/crm/ar` lists completed turns for the session client only. If those columns are missing, the response is `blocked: true` and `work_orders: []`. `POST /portal/api/crm/ar/:turnId/close` requires a QuickBooks reference and writes `crm_ar` only. `POST /portal/api/crm/ar/close` without a turn id stays 503. A `TC` job still cannot carry AR. The hourly pass does not scan every client. It records one internal `ar_feed_blocked` alert. Details: `reference/tendcopm-pages-deploy/2319029bec17/PROVENANCE.md`.
 
 ## 24-hour alert — built, not activated
 
 `functions/portal/_lib/crm/scheduled.js` exports `scheduledArPass`. With the production source it writes one internal row, `ar_feed_blocked`, channel `internal`, recipient role `owner`. A second run does not add another row. When a verified list of Hub work orders is passed in (tests only), a Done older than 24 hours with AR stage still short of sent inserts one `ar_done_to_sent_overdue` row per work-order id and done time (`INSERT ... ON CONFLICT DO NOTHING`). Marking that order sent resolves the row. Nothing in that module calls `fetch` or an email or text API.
 
-The cron is not in `wrangler.toml` and is not deployed. When the turn writer is in the repo, bind a Worker (not this Pages project; Pages has no cron) as follows and do not enable it before that:
+The cron is not in `wrangler.toml` and is not deployed. Pages has no cron. A Worker binding, still not enabled:
 
 - D1 binding `TURN_DB` = `tendco-turn-board-db`
 - Cron `17 * * * *`
@@ -41,7 +41,7 @@ Deploying that cron today would insert the single internal blocked alert into pr
 
 ## Bot and team API
 
-Call `/portal/api/crm/*` with the Hub session that already exists: `Authorization: Bearer <session token>` or the session cookie. `sessions.id` must be the SHA-256 hex of that token, `expires_at` must be in the future, and `users.role` must already be `owner`, `staff`, or `admin`. This API does not create users, set passwords, or change roles. Client roles receive 403 and no records. There is no committed password or session token.
+Call `/portal/api/crm/*` with the existing Hub session cookie `__Host-tb_session`, or the same token as a bearer on CRM routes only. The historical portal handler does not read Authorization. `sessions.id` must be the SHA-256 hex of that token, the token must match the historical pattern, `expires_at` must still be in the future, and the user row must join a `clients` row. Role must already be `owner`, `staff`, or `admin`. That role split is not created by the historical signup, which only inserts `pm`. This API does not create users, set passwords, change roles, or accept `X-Admin-Key`. Client roles receive 403 and no records. There is no committed password or session token.
 
 ## What is not done
 
@@ -77,7 +77,7 @@ npx wrangler d1 export tendco-turn-board-db --remote --output ./tendco-turn-boar
 npx wrangler d1 migrations apply tendco-turn-board-db --remote
 ```
 
-`0016` and `0017` are additive. `0017` adds `crm_internal_alerts` only. Export first anyway. Neither migration has been applied. The export file is a full copy of production, including Hub clients. Keep it out of git, previews, tickets, and screenshots.
+`0016`, `0017`, and `0018` are additive. `0017` adds internal alerts. `0018` adds `crm_ar` keyed by Hub turn id and does not alter `turns`. None of them have been applied. Export first anyway. The export file is a full copy of production, including Hub clients. Keep it out of git, previews, tickets, and screenshots.
 
 Restore replaces the remote database with that export. Confirm the database name before running it. Restore undoes CRM rows and also undoes Hub rows written after the export, so take the export immediately before the migration and do not keep working in the Hub during that window.
 

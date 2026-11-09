@@ -4,29 +4,29 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { handleCrm } from '../functions/portal/_lib/crm/http.js';
 import { directionsUrl } from '../functions/portal/_lib/crm/constants.js';
-import { crmRequest, openCrmDb, seedUser } from './crm-db.mjs';
+import { crmRequest, openCrmDb, seedUser, sessionToken } from './crm-db.mjs';
 
 const NOW = new Date('2026-11-09T15:00:00.000Z');
 
 async function world() {
   const db = openCrmDb();
   const owner = await seedUser(db, {
-    id: 'user-owner', name: 'Avery Owner', email: 'avery@tendcopm.com', role: 'owner', token: 'owner-token-synthetic-0001',
+    id: 'user-owner', name: 'Avery Owner', email: 'avery@tendcopm.com', role: 'owner', token: sessionToken('owner'),
   });
   const staff = await seedUser(db, {
-    id: 'user-staff', name: 'Blair Staff', email: 'blair@tendcopm.com', role: 'staff', token: 'staff-token-synthetic-0001',
+    id: 'user-staff', name: 'Blair Staff', email: 'blair@tendcopm.com', role: 'staff', token: sessionToken('staff'),
   });
   const pm = await seedUser(db, {
-    id: 'user-pm', name: 'Casey PM', email: 'casey@northwind.example', role: 'pm', token: 'pm-token-synthetic-0000001',
+    id: 'user-pm', name: 'Casey PM', email: 'casey@northwind.example', role: 'pm', token: sessionToken('pm'),
   });
   const tech = await seedUser(db, {
-    id: 'user-tech', name: 'Devon Tech', email: 'devon@northwind.example', role: 'tech', token: 'tech-token-synthetic-000001',
+    id: 'user-tech', name: 'Devon Tech', email: 'devon@northwind.example', role: 'tech', token: sessionToken('tech'),
   });
   const vendor = await seedUser(db, {
-    id: 'user-vendor', name: 'Eden Vendor', email: 'eden@vendor.example', role: 'vendor', token: 'vendor-token-synthetic-001',
+    id: 'user-vendor', name: 'Eden Vendor', email: 'eden@vendor.example', role: 'vendor', token: sessionToken('vendor'),
   });
   const supervisor = await seedUser(db, {
-    id: 'user-sup', name: 'Fran Supervisor', email: 'fran@northwind.example', role: 'maintenance_supervisor', token: 'supervisor-token-synthetic1',
+    id: 'user-sup', name: 'Fran Supervisor', email: 'fran@northwind.example', role: 'maintenance_supervisor', token: sessionToken('supervisor'),
   });
   return { db, owner, staff, pm, tech, vendor, supervisor };
 }

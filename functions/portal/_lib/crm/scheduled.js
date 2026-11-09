@@ -18,7 +18,7 @@ export async function scheduledArPass(db, now = new Date(), source = loadHubWork
     const alerts = await raiseOverdueAlerts(db, orders, now);
     return { blocked: false, alerts };
   } catch (err) {
-    if (err && err.code === 'hub_work_order_source_unavailable') {
+    if (err && (err.code === 'hub_work_order_source_unavailable' || err.code === 'hub_cross_client_reader_not_used')) {
       const blocked = await raiseFeedBlocked(db, now);
       return { blocked: true, ...blocked };
     }

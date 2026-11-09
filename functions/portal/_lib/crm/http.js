@@ -1,6 +1,8 @@
 import { listInternalAlerts } from './ar-alert.js';
-import { actorFromRequest, isInternalActor } from './auth.js';
-import { loadHubWorkOrders } from './hub-ar-contract.js';
+import { actorFromRequest, hubDatabase, isInternalActor } from './auth.js';
+import { TURN_WRITER_COMMIT } from './hub-ar-contract.js';
+import { closeArForTurn, saveArStage, workOrdersForActor } from './hub-ar.js';
+import { HubWorkOrderSourceUnavailable } from './hub-turns.js';
 import {
   addContact,
   addFollowup,
@@ -196,20 +198,44 @@ async function routeCrm(request, deps) {
     } catch (err) {
       if (!/no such table/i.test(err && err.message || '')) throw err;
     }
-    return json(200, {
+    const base = {
       ok: true,
-      authoritative: false,
-      blocked: true,
-      code: 'hub_work_order_source_unavailable',
       route: '/portal/api/turns/:id',
       done_status: 'complete',
-      work_orders: [],
+      provenance_commit: TURN_WRITER_COMMIT,
+      verified_live: false,
+      cross_client_blocked: true,
       alerts,
-    });
+    };
+    try {
+      const work_orders = await workOrdersForActor(db, actor);
+      return json(200, {
+        ...base,
+        authoritative: true,
+        scope: 'session_client',
+        blocked: false,
+        code: 'hub_cross_client_reader_not_used',
+        work_orders,
+      });
+    } catch (err) {
+      if (!(err instanceof HubWorkOrderSourceUnavailable) && err.code !== 'hub_work_order_source_unavailable') throw err;
+      return json(200, {
+        ...base,
+        authoritative: false,
+        blocked: true,
+        code: 'hub_work_order_source_unavailable',
+        work_orders: [],
+      });
+    }
+  }
+  if (parts[0] === 'ar' && parts.length === 2 && method === 'PATCH') {
+    return json(200, { ok: true, work_order: await saveArStage(db, actor, now, parts[1], body) });
+  }
+  if (parts[0] === 'ar' && parts[2] === 'close' && method === 'POST') {
+    return json(200, { ok: true, work_order: await closeArForTurn(db, actor, now, parts[1], body) });
   }
   if (parts[0] === 'ar' && parts[1] === 'close' && method === 'POST') {
-    await loadHubWorkOrders();
-    return deny(500, 'CRM request failed');
+    return deny(503, 'Name the Hub turn id. CRM will not close an unspecified job.', 'hub_work_order_source_unavailable');
   }
   if (parts[0] === 'schedule' && method === 'GET') {
     return json(200, { ok: true, jobs: await listJobs(db, now, {

@@ -7,7 +7,7 @@ import { raiseOverdueAlerts } from '../functions/portal/_lib/crm/ar-alert.js';
 import { assertInvoiceBeforeClose, loadHubWorkOrders } from '../functions/portal/_lib/crm/hub-ar-contract.js';
 import { scheduledArPass } from '../functions/portal/_lib/crm/scheduled.js';
 import { sha256Hex } from '../functions/portal/_lib/crm/auth.js';
-import { crmRequest, openCrmDb, seedUser } from './crm-db.mjs';
+import { crmRequest, openCrmDb, seedUser, sessionToken } from './crm-db.mjs';
 import { d1Like } from './d1-like.mjs';
 
 const NOW = new Date('2026-11-09T15:00:00.000Z');
@@ -32,20 +32,21 @@ async function call(db, method, path, token, body, headers) {
 test('close gate is a pure rule and the Hub feed is unavailable', async () => {
   assert.throws(() => assertInvoiceBeforeClose(''), /invoice reference/i);
   assert.doesNotThrow(() => assertInvoiceBeforeClose('QB-100'));
-  await assert.rejects(loadHubWorkOrders(), (err) => err.code === 'hub_work_order_source_unavailable');
+  await assert.rejects(loadHubWorkOrders(), (err) => err.code === 'hub_cross_client_reader_not_used');
 });
 
 test('bot session contract and negative access', async () => {
   const db = openCrmDb();
   const ownerToken = await seedUser(db, {
-    id: 'user-owner', name: 'Avery Owner', email: 'avery@tendcopm.com', role: 'owner', token: 'owner-token-synthetic-0001',
+    id: 'user-owner', name: 'Avery Owner', email: 'avery@tendcopm.com', role: 'owner', token: sessionToken('owner'),
   });
   const pmToken = await seedUser(db, {
-    id: 'user-pm', name: 'Casey PM', email: 'casey@northwind.example', role: 'pm', token: 'pm-token-synthetic-0000001',
+    id: 'user-pm', name: 'Casey PM', email: 'casey@northwind.example', role: 'pm', token: sessionToken('pm'),
   });
+  const expiredToken = sessionToken('expired');
   await db.prepare(
     `INSERT INTO sessions (id, user_id, created_at, expires_at, last_seen) VALUES (?, 'user-owner', ?, ?, ?)`
-  ).bind(await sha256Hex('expired-token-synthetic-0001'), '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z', '2026-01-01T00:00:00.000Z').run();
+  ).bind(await sha256Hex(expiredToken), '2026-01-01T00:00:00.000Z', '2026-01-02T00:00:00.000Z', '2026-01-01T00:00:00.000Z').run();
 
   const anon = await call(db, 'GET', '/portal/api/crm/ar', null);
   assert.equal(anon.status, 401);
@@ -63,7 +64,11 @@ test('bot session contract and negative access', async () => {
   assert.equal(pm.status, 403);
   assert.equal(JSON.stringify(pm.json).includes('work_orders'), false);
 
-  const expired = await call(db, 'GET', '/portal/api/crm/ar', 'expired-token-synthetic-0001');
+  const expired = await call(db, 'GET', '/portal/api/crm/ar', expiredToken);
+  const wrongCookie = await handleCrm(new Request('https://hub.local/portal/api/crm/ar', {
+    headers: { cookie: `hub_session=${ownerToken}` },
+  }), { db, now: () => NOW });
+  assert.equal(wrongCookie.status, 401);
   assert.equal(expired.status, 401);
 
   const before = await db.prepare(`SELECT COUNT(*) AS n FROM crm_jobs`).first();
@@ -113,6 +118,51 @@ test('injected Hub done records alert once, and sent resolves without a new aler
   assert.equal(row.status, 'resolved');
   assert.equal(row.channel, 'internal');
   assert.equal(raw.prepare(`SELECT COUNT(*) AS n FROM crm_internal_alerts`).get().n, 1);
+});
+
+test('completed Hub turn is the AR record and close does not rewrite the turn', async () => {
+  const db = openCrmDb();
+  const token = await seedUser(db, {
+    id: 'user-owner', name: 'Avery Owner', email: 'avery@tendcopm.com', role: 'owner', token: sessionToken('owner2'),
+  });
+  await db.prepare(
+    `CREATE TABLE turns (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      unit_id TEXT,
+      status TEXT NOT NULL,
+      notes TEXT,
+      scheduled_date TEXT,
+      completed_at TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    )`
+  ).run();
+  const doneAt = '2026-11-08T12:00:00.000Z';
+  await db.prepare(
+    `INSERT INTO turns (id, client_id, unit_id, status, completed_at, created_at, updated_at)
+     VALUES ('turn-local-example', 'hub-client', 'unit-1', 'complete', ?, ?, ?)`
+  ).bind(doneAt, doneAt, doneAt).run();
+  const listed = await call(db, 'GET', '/portal/api/crm/ar', token);
+  assert.equal(listed.json.authoritative, true);
+  assert.equal(listed.json.scope, 'session_client');
+  assert.equal(listed.json.verified_live, false);
+  assert.equal(listed.json.work_orders.length, 1);
+  assert.equal(listed.json.work_orders[0].id, 'turn-local-example');
+  assert.equal(listed.json.work_orders[0].completed_at, doneAt);
+  const blocked = await call(db, 'POST', '/portal/api/crm/ar/turn-local-example/close', token, {});
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.json.code, 'invoice_reference_required');
+  const closed = await call(db, 'POST', '/portal/api/crm/ar/turn-local-example/close', token, { qb_invoice_ref: 'QB-100' });
+  assert.equal(closed.status, 200);
+  assert.equal(closed.json.work_order.billing_closed_at != null, true);
+  const turn = await db.prepare(`SELECT status, completed_at FROM turns WHERE id = 'turn-local-example'`).first();
+  assert.equal(turn.status, 'complete');
+  assert.equal(turn.completed_at, doneAt);
+  const alerts = await db.prepare(`SELECT COUNT(*) AS n FROM crm_internal_alerts`).first();
+  assert.equal(alerts.n, 0);
+  const scheduled = await scheduledArPass(db, new Date('2026-11-09T15:00:00.000Z'));
+  assert.equal(scheduled.blocked, true);
 });
 
 test('D1-style batch rolls back and keeps a failed write from sticking', async () => {

@@ -17,21 +17,7 @@
  */
 
 export const HUB_WORK_ORDER_ROUTE = '/portal/api/turns/:id';
-export const HUB_DONE_STATUS = 'complete';
-
-export class HubWorkOrderSourceUnavailable extends Error {
-  constructor() {
-    super('Hub work-order source is not in this repo. AR is not using a second job list.');
-    this.name = 'HubWorkOrderSourceUnavailable';
-    this.status = 503;
-    this.code = 'hub_work_order_source_unavailable';
-  }
-}
-
-/** Production feed. There is no deployed turn module to call. */
-export async function loadHubWorkOrders() {
-  throw new HubWorkOrderSourceUnavailable();
-}
+export { HUB_DONE_STATUS, TURN_WRITER_COMMIT, loadHubWorkOrders } from './hub-turns.js';
 
 export function invoiceReferencePresent(invoiceRef) {
   return String(invoiceRef || '').trim().length > 0;

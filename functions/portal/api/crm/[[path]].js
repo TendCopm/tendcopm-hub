@@ -1,3 +1,4 @@
+import { hubDatabase } from '../../../_lib/crm/auth.js';
 import { handleCrm } from '../../../_lib/crm/http.js';
 
 function json(status, body) {
@@ -11,7 +12,7 @@ function json(status, body) {
 }
 
 export async function onRequest(context) {
-  const db = context.env && context.env.TURN_DB;
+  const db = hubDatabase(context.env);
   if (!db) return json(503, { ok: false, error: 'CRM storage is not configured' });
   return handleCrm(context.request, { db });
 }

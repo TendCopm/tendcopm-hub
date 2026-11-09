@@ -28,6 +28,7 @@ raw.exec(`
 `);
 raw.exec(readFileSync(join(import.meta.dirname, '..', 'migrations', '0016_crm_internal.sql'), 'utf8'));
 raw.exec(readFileSync(join(import.meta.dirname, '..', 'migrations', '0017_crm_internal_alerts.sql'), 'utf8'));
+raw.exec(readFileSync(join(import.meta.dirname, '..', 'migrations', '0018_crm_ar_turn.sql'), 'utf8'));
 
 function bound(stmt, args) {
   return {
@@ -43,8 +44,17 @@ let ephemeral = null;
 if (process.env.CRM_LOCAL_EPHEMERAL === '1') {
   ephemeral = randomBytes(24).toString('hex');
   const hash = await sha256Hex(ephemeral);
+  const doneAt = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString();
+  raw.exec(`CREATE TABLE clients (id TEXT PRIMARY KEY, name TEXT NOT NULL);
+    CREATE TABLE turns (
+      id TEXT PRIMARY KEY, client_id TEXT NOT NULL, unit_id TEXT, status TEXT NOT NULL,
+      completed_at TEXT, created_at TEXT, updated_at TEXT
+    );`);
+  raw.prepare(`INSERT INTO clients (id, name) VALUES ('local-hub', 'Local Example')`).run();
   raw.prepare(`INSERT INTO users (id, client_id, email, name, role) VALUES ('local-owner', 'local-hub', 'local-owner@example.test', 'Local Owner', 'owner')`).run();
   raw.prepare(`INSERT INTO sessions (id, user_id, created_at, expires_at, last_seen) VALUES (?, 'local-owner', datetime('now'), datetime('now', '+1 day'), datetime('now'))`).run(hash);
+  raw.prepare(`INSERT INTO turns (id, client_id, unit_id, status, completed_at, created_at, updated_at)
+    VALUES ('turn-local-example', 'local-hub', 'unit-local', 'complete', ?, ?, ?)`).run(doneAt, doneAt, doneAt);
 }
 
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.json': 'application/json' };
@@ -63,7 +73,7 @@ const server = createServer(async (req, res) => {
     }
     res.writeHead(302, {
       location: '/portal/crm.html',
-      'set-cookie': `hub_session=${ephemeral}; Path=/; HttpOnly; SameSite=Lax`,
+      'set-cookie': `__Host-tb_session=${ephemeral}; Path=/; Secure; HttpOnly; SameSite=Lax`,
     });
     res.end();
     return;

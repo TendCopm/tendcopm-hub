@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import { sha256Hex } from '../functions/portal/_lib/crm/auth.js';
+import { SESSION_COOKIE, sha256Hex } from '../functions/portal/_lib/crm/auth.js';
 
 export function openCrmDb() {
   const db = new DatabaseSync(':memory:');
@@ -25,9 +25,14 @@ export function openCrmDb() {
       ip TEXT,
       user_agent TEXT
     );
+    CREATE TABLE clients (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL
+    );
   `);
   db.exec(readFileSync(new URL('../migrations/0016_crm_internal.sql', import.meta.url), 'utf8'));
   db.exec(readFileSync(new URL('../migrations/0017_crm_internal_alerts.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../migrations/0018_crm_ar_turn.sql', import.meta.url), 'utf8'));
   return wrap(db);
 }
 
@@ -58,10 +63,16 @@ function wrap(db) {
   };
 }
 
-export async function seedUser(db, { id, name, email, role, token }) {
+export function sessionToken(label) {
+  const raw = `TendCo${String(label).replace(/[^A-Za-z0-9]/g, 'X')}`;
+  return (raw + 'A'.repeat(48)).slice(0, 48);
+}
+
+export async function seedUser(db, { id, name, email, role, token, clientId = 'hub-client' }) {
+  await db.prepare(`INSERT OR IGNORE INTO clients (id, name) VALUES (?, 'Example Hub Client')`).bind(clientId).run();
   await db.prepare(
-    `INSERT INTO users (id, client_id, email, name, role) VALUES (?, 'hub-client', ?, ?, ?)`
-  ).bind(id, email, name, role).run();
+    `INSERT INTO users (id, client_id, email, name, role) VALUES (?, ?, ?, ?, ?)`
+  ).bind(id, clientId, email, name, role).run();
   const hash = await sha256Hex(token);
   await db.prepare(
     `INSERT INTO sessions (id, user_id, created_at, expires_at, last_seen) VALUES (?, ?, ?, ?, ?)`
@@ -74,7 +85,7 @@ export function crmRequest(method, path, token, body) {
     method,
     headers: {
       'content-type': 'application/json',
-      cookie: token ? `hub_session=${token}` : '',
+      cookie: token ? `${SESSION_COOKIE}=${token}` : '',
       'user-agent': 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0',
     },
     body: body ? JSON.stringify(body) : undefined,
